@@ -35,6 +35,8 @@ async function migrate(){
     `CREATE TABLE IF NOT EXISTS shifts (id SERIAL PRIMARY KEY, op_date TEXT NOT NULL, type INTEGER NOT NULL, supervisor_id INTEGER NOT NULL, opened_at BIGINT NOT NULL, closed_at BIGINT, visits INTEGER, doctors TEXT NOT NULL DEFAULT '[]')`,
     `CREATE TABLE IF NOT EXISTS visits (id SERIAL PRIMARY KEY, code TEXT NOT NULL, arrived_at BIGINT NOT NULL, op_date TEXT NOT NULL, shift_type INTEGER NOT NULL, exit_at BIGINT, reason INTEGER NOT NULL, note TEXT NOT NULL DEFAULT '', doctor TEXT, by_id INTEGER NOT NULL, created_at BIGINT NOT NULL)`,
     `ALTER TABLE visits ADD COLUMN IF NOT EXISTS mrn TEXT`,
+    `ALTER TABLE visits ADD COLUMN IF NOT EXISTS voided_at BIGINT`,
+    `ALTER TABLE visits ADD COLUMN IF NOT EXISTS voided_by INTEGER`,
     `CREATE INDEX IF NOT EXISTS visits_date ON visits (op_date)`,
     `CREATE TABLE IF NOT EXISTS handovers (id SERIAL PRIMARY KEY, from_user INTEGER, to_user INTEGER NOT NULL, at BIGINT NOT NULL, over_count INTEGER NOT NULL DEFAULT 0)`,
     `CREATE TABLE IF NOT EXISTS audit (seq SERIAL PRIMARY KEY, at BIGINT NOT NULL, user_id INTEGER, username TEXT NOT NULL, name TEXT NOT NULL, role TEXT NOT NULL, action TEXT NOT NULL, entity TEXT NOT NULL, entity_id TEXT, summary TEXT NOT NULL, prev TEXT NOT NULL, hash TEXT NOT NULL)`,
@@ -78,9 +80,9 @@ async function duty(u){ if (!(await canDuty(u))) await deny(u, "التسجيل �
 const vMins = v => Math.floor(((N(v.exit_at) || now()) - N(v.arrived_at)) / 60000);
 async function names(){ const m = new Map(); for (const r of await q(`SELECT id, name FROM users`)) m.set(Number(r.id), r.name); return id => id === null || id === undefined ? "—" : (m.get(Number(id)) || "—"); }
 const vView = (v, nm) => ({id: Number(v.id), code: v.code, arrivedAt: N(v.arrived_at), exitAt: N(v.exit_at), mins: vMins(v), reason: Number(v.reason), note: v.note || "", doctor: v.doctor || null, mrn: v.mrn || null, by: nm(v.by_id), shiftType: Number(v.shift_type)});
-async function getVisit(p){ const v = await one(`SELECT * FROM visits WHERE id = $1`, [pInt(p, "id", 1, 2147483647, "رقم الحالة")]); if (!v) fail("notfound", "الحالة غير موجودة."); return v; }
+async function getVisit(p){ const v = await one(`SELECT * FROM visits WHERE voided_at IS NULL AND id = $1`, [pInt(p, "id", 1, 2147483647, "رقم الحالة")]); if (!v) fail("notfound", "الحالة غير موجودة."); return v; }
 const pctOf = (vis, late) => vis > 0 ? Math.max(0, Math.round((vis - late) / vis * 100)) : null;
-const visitsIn = dates => q(`SELECT * FROM visits WHERE op_date IN (${marks(dates)})`, dates);
+const visitsIn = dates => q(`SELECT * FROM visits WHERE voided_at IS NULL AND op_date IN (${marks(dates)})`, dates);
 async function coverage(dates, L, type){
   const rows = await q(`SELECT op_date, type, COALESCE(SUM(visits), 0)::int AS v, SUM(CASE WHEN visits > 0 THEN 0 ELSE 1 END)::int AS m FROM shifts WHERE op_date IN (${marks(dates)})${type === undefined ? "" : " AND type = " + Number(type)} GROUP BY op_date, type`, dates);
   const tot = {}, key = (d, t) => type === undefined ? d : d + "|" + t; let missing = 0;
@@ -88,7 +90,7 @@ async function coverage(dates, L, type){
   const vis = Object.values(tot).reduce((a, b) => a + b, 0), late = L.filter(v => tot[key(v.op_date, v.shift_type)]).length;
   return {vis, pct: pctOf(vis, late), partial: vis > 0 && (late < L.length || missing > 0)};
 }
-async function jStats(){ const today = slotOf(now()).date, L = await visitsIn([today]), c = await coverage([today], L), o = await one(`SELECT COUNT(*)::int AS n FROM visits WHERE exit_at IS NULL`); return {over: o.n, lateToday: L.length, visitsToday: c.vis, pct: c.pct}; }
+async function jStats(){ const today = slotOf(now()).date, L = await visitsIn([today]), c = await coverage([today], L), o = await one(`SELECT COUNT(*)::int AS n FROM visits WHERE voided_at IS NULL AND exit_at IS NULL`); return {over: o.n, lateToday: L.length, visitsToday: c.vis, pct: c.pct}; }
 function setReason(p){ if (p.reason === undefined || p.reason === null || p.reason === "") fail("invalid", "اختر سبب التأخير."); const r = pInt(p, "reason", 0, REASONS.length - 1, "سبب التأخير"), note = pStr(p, "note", 0, 300, "التوضيح"); if (r === REASONS.length - 1 && [...note].length < 3) fail("invalid", "اكتب سبب التأخير في الخانة أولاً."); return [r, note]; }
 async function pickDoctor(p, current){ if (!("doctor" in p)) return current; const d = typeof p.doctor === "string" ? p.doctor.trim() : ""; if (d && d !== current && !shiftDoctors(await openShift()).includes(d)) fail("invalid", "الطبيب غير موجود في قائمة أطباء المناوبة."); return d || null; }
 function pickMrn(p, current){ if (!("mrn" in p)) return current; const m = (typeof p.mrn === "string" || typeof p.mrn === "number") ? String(p.mrn).trim() : ""; if (m && !/^[A-Za-z0-9-]{1,20}$/.test(m)) fail("invalid", "رقم الملف: أرقام وأحرف إنجليزية وشرطة فقط، حتى 20 خانة."); return m || null; }
@@ -143,7 +145,7 @@ const H = {
     for (const e of rows){ n++; if (e.prev !== prev || e.hash !== auditHash(prev, {at: N(e.at), userId: N(e.user_id), action: e.action, entity: e.entity, entityId: e.entity_id, summary: e.summary})) return {ok: false, at: Number(e.seq), count: rows.length}; prev = e.hash; }
     return {ok: true, count: n}; }],
   "visits.list": ["visits.view", async (u, p) => { const cur = await openShift(), nm = await names();
-    const L = p.filter === "today" ? await q(`SELECT * FROM visits WHERE op_date = $1 ORDER BY arrived_at ASC`, [slotOf(now()).date]) : await q(`SELECT * FROM visits WHERE exit_at IS NULL ORDER BY arrived_at ASC`);
+    const L = p.filter === "today" ? await q(`SELECT * FROM visits WHERE voided_at IS NULL AND op_date = $1 ORDER BY arrived_at ASC`, [slotOf(now()).date]) : await q(`SELECT * FROM visits WHERE voided_at IS NULL AND exit_at IS NULL ORDER BY arrived_at ASC`);
     return {rows: L.map(v => vView(v, nm)), stats: await jStats(), canWrite: await canDuty(u), shiftVisits: cur && Number(cur.visits) > 0 ? Number(cur.visits) : null, doctors: shiftDoctors(cur)}; }],
   "visit.get": ["visits.view", async (u, p) => ({...vView(await getVisit(p), await names()), canWrite: await canDuty(u), doctors: shiftDoctors(await openShift())})],
   "visit.create": ["visit.write", async (u, p) => {
@@ -159,6 +161,7 @@ const H = {
     await q(`UPDATE visits SET exit_at = $1 WHERE id = $2`, [t, v.id]); await audit(u, "visit.exit", "visit", v.id, `${v.code}: خرج من القسم بعد ${Math.floor((t - N(v.arrived_at)) / 60000)} دقيقة`); return {ok: true}; }],
   "visit.reason": ["visit.write", async (u, p) => { await duty(u); const v = await getVisit(p), [reason, note] = setReason(p), doctor = await pickDoctor(p, v.doctor || null), mrn = pickMrn(p, v.mrn || null);
     await q(`UPDATE visits SET reason = $1, note = $2, doctor = $3, mrn = $4 WHERE id = $5`, [reason, note, doctor, mrn, v.id]); await audit(u, "visit.reason", "visit", v.id, `${v.code}: ${REASONS[reason]}${doctor ? "، الطبيب المعالج: " + doctor : ""}`); return {ok: true}; }],
+  "visit.void": ["visit.write", async (u, p) => { await duty(u); const v = await getVisit(p); await q(`UPDATE visits SET voided_at = $1, voided_by = $2 WHERE id = $3`, [now(), u.id, v.id]); await audit(u, "visit.void", "visit", v.id, `إلغاء الحالة ${v.code} لأنها سُجّلت بالخطأ`); return {ok: true}; }],
   "doctor.add": ["visit.write", async (u, p) => { await duty(u); const cur = await openShift(); if (!cur) fail("conflict", "لا توجد مناوبة جارية. يستلم مشرف المناوبة أولاً."); const docs = shiftDoctors(cur), name = pStr(p, "name", 2, 40, "اسم الطبيب");
     if (docs.length >= 15) fail("invalid", "الحد الأقصى 15 طبيباً في المناوبة."); if (docs.includes(name)) fail("conflict", "الاسم مضاف من قبل.");
     docs.push(name); await q(`UPDATE shifts SET doctors = $1 WHERE id = $2`, [JSON.stringify(docs), cur.id]); await audit(u, "doctor.add", "shift", cur.id, "إضافة طبيب للمناوبة: " + name); return {ok: true}; }],

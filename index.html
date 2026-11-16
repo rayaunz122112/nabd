@@ -207,6 +207,10 @@ input.inl{border:1px solid var(--line);border-radius:8px;padding:7px 10px;backgr
 .rbtns{grid-column:1/-1;display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px}
 .rbtns button{padding:13px 10px;border:1px solid var(--line);background:var(--surface-2);border-radius:9px;cursor:pointer;font-weight:500;line-height:1.4}
 .rbtns button:hover,.rbtns button:focus-visible{border-color:var(--accent);background:var(--accent-soft)}
+.rbtns button[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:#fff}
+.sf label{min-width:0}
+.sf input[type=time],.sf input[type=date]{-webkit-appearance:none;appearance:none;min-width:0;min-height:44px;box-sizing:border-box}
+@media (max-width:560px){form.sf{grid-template-columns:minmax(0,1fr)}}
 @media (max-width:920px){.app{grid-template-columns:minmax(0,1fr);grid-template-rows:auto 1fr}.side{min-width:0;align-content:flex-start}.nav{flex-wrap:nowrap;overflow-x:auto;width:100%;min-width:0}.nav a{white-space:nowrap}.side{gap:8px}}
 </style>
 </head>
@@ -433,7 +437,7 @@ const PERMS = {
   "visits.view": ["admin", "supervisor"], "visit.write": ["admin", "supervisor"],
   "duty.take": ["supervisor"], "handover.view": ["admin", "supervisor"], "users.manage": ["admin"], "audit.view": ["admin"]};
 const PERM_LABEL = {"dashboard.view": "عرض لوحة القيادة (إجماليات)", "delays.view": "عرض تقرير التأخير (الاطلاع: إجماليات فقط)", "visits.view": "عرض الحالات المتجاوزة برموز مجهولة", "visit.write": "تسجيل الحالات المتجاوزة وأطباء المناوبة وإجمالي الزيارات (المشرف: أثناء مناوبته فقط)", "duty.take": "استلام المناوبة", "handover.view": "عرض سجل تسليم المناوبات", "users.manage": "إدارة المستخدمين والصلاحيات", "audit.view": "عرض سجل التدقيق"};
-const ACTION_LABEL = {"login": "تسجيل دخول", "login.fail": "محاولة دخول فاشلة", "logout": "تسجيل خروج", "denied": "طلب مرفوض", "duty.take": "استلام المناوبة", "user.create": "إنشاء مستخدم", "user.update": "تعديل مستخدم", "visit.create": "تسجيل حالة متجاوزة", "visit.exit": "تسجيل خروج", "visit.reason": "تعديل سبب تأخير", "shift.total": "تحديث إجمالي الزيارات", "doctor.add": "إضافة طبيب للمناوبة", "doctor.remove": "إزالة طبيب من المناوبة", "signup": "طلب حساب جديد"};
+const ACTION_LABEL = {"login": "تسجيل دخول", "login.fail": "محاولة دخول فاشلة", "logout": "تسجيل خروج", "denied": "طلب مرفوض", "duty.take": "استلام المناوبة", "user.create": "إنشاء مستخدم", "user.update": "تعديل مستخدم", "visit.create": "تسجيل حالة متجاوزة", "visit.exit": "تسجيل خروج", "visit.reason": "تعديل سبب تأخير", "visit.void": "إلغاء حالة", "shift.total": "تحديث إجمالي الزيارات", "doctor.add": "إضافة طبيب للمناوبة", "doctor.remove": "إزالة طبيب من المناوبة", "signup": "طلب حساب جديد"};
 
 /* ============ الاتصال بالخادم ============
    كل البيانات والصلاحيات في الخادم (server.js). الواجهة تعرض ما يعيده الخادم فقط ولا تحفظ شيئاً في المتصفح. */
@@ -508,7 +512,7 @@ const hm = t => t ? new Date(t).toLocaleTimeString("en-GB", {hour: "2-digit", mi
 const visitRow = (v, w) => `<div class="issue" style="--c:var(${v.exitAt ? "--muted" : "--crit"})"><div style="flex:1;min-width:190px"><b>${REASONS[v.reason]}</b><span class="meta"><span class="num">${v.code}</span> · دخل ${tFmt.format(v.arrivedAt)}${v.exitAt ? ` · خرج ${hm(v.exitAt)}` : " · ما زال داخل القسم"}${v.note ? " · " + esc(v.note) : ""}</span><span class="meta">الطبيب المعالج: ${v.doctor ? esc(v.doctor) : "غير محدد"}${v.mrn ? ` · رقم الملف: <span class="num" dir="ltr">${esc(v.mrn)}</span>` : ""}</span></div><div class="tools"><b class="num" style="color:var(--crit)">${durFmt(v.mins)}</b>${w && !v.exitAt ? `<button class="btn primary small" type="button" data-act="vExitNow" data-id="${v.id}">خرج الآن</button>` : ""}${w ? `<button class="btn small" type="button" data-act="visitOpen" data-id="${v.id}">تعديل</button>` : ""}</div></div>`;
 const visitPanel = v => `<div class="card"><div class="row"><h2>تعديل الحالة <span class="num">${v.code}</span></h2><button class="btn small" type="button" data-act="visitOpen" data-id="">إغلاق</button></div>
   <p class="hint">دخل ${tFmt.format(v.arrivedAt)}${v.exitAt ? ` · خرج ${tFmt.format(v.exitAt)}` : ""} · المدة ${durFmt(v.mins)} · سجّلها ${esc(v.by)}</p>
-  <form class="sf" data-form="vreason" data-id="${v.id}" novalidate><label>الطبيب المعالج<select name="doctor" id="f-vdoc2"><option value="">غير محدد</option>${[...new Set([...v.doctors, ...(v.doctor ? [v.doctor] : [])])].map(n => `<option value="${esc(n)}" ${n === v.doctor ? "selected" : ""}>${esc(n)}</option>`).join("")}</select></label><label>سبب التأخير<select name="reason" id="f-vreason">${REASONS.map((n, i) => `<option value="${i}" ${v.reason === i ? "selected" : ""}>${n}</option>`).join("")}</select></label><label>رقم ملف المريض (اختياري)<input name="mrn" id="f-vmrn2" inputmode="numeric" maxlength="20" autocomplete="off" dir="ltr" value="${esc(v.mrn || "")}"></label><label>توضيح دون بيانات مرضى<input name="note" id="f-vnote2" maxlength="300" value="${esc(v.note)}"></label><div class="act"><button class="btn primary" type="submit">حفظ التعديل</button></div></form></div>`;
+  <form class="sf" data-form="vreason" data-id="${v.id}" novalidate><label>الطبيب المعالج<select name="doctor" id="f-vdoc2"><option value="">غير محدد</option>${[...new Set([...v.doctors, ...(v.doctor ? [v.doctor] : [])])].map(n => `<option value="${esc(n)}" ${n === v.doctor ? "selected" : ""}>${esc(n)}</option>`).join("")}</select></label><label>سبب التأخير<select name="reason" id="f-vreason">${REASONS.map((n, i) => `<option value="${i}" ${v.reason === i ? "selected" : ""}>${n}</option>`).join("")}</select></label><label>رقم ملف المريض (اختياري)<input name="mrn" id="f-vmrn2" inputmode="numeric" maxlength="20" autocomplete="off" dir="ltr" value="${esc(v.mrn || "")}"></label><label>توضيح دون بيانات مرضى<input name="note" id="f-vnote2" maxlength="300" value="${esc(v.note)}"></label><div class="act"><button class="btn primary" type="submit">حفظ التعديل</button><button class="btn" type="button" data-act="vVoid" data-id="${v.id}" style="color:var(--crit)">إلغاء الحالة (سُجّلت بالخطأ)</button></div></form></div>`;
 async function pgJourney(el){
   const d = await api("visits.list", {filter: S.vFilter}); if (!d) return; const st = d.stats, w = d.canWrite;
   let det = ""; if (S.visitId && w){ const v = await api("visit.get", {id: S.visitId}); if (v) det = visitPanel(v); }
@@ -518,16 +522,18 @@ async function pgJourney(el){
   const du = await api("duty.get"); if (du) det = dutyCard(du) + docs + det; else det = docs + det;
   const t0 = new Date(Date.now() - 245 * 60e3), def = String(t0.getHours()).padStart(2, "0") + ":" + String(t0.getMinutes()).padStart(2, "0");
   el.innerHTML = `${det}
-  ${w ? `<div class="card"><h2>تسجيل مريض تجاوز 4 ساعات</h2><p class="hint">تأكد من وقت الدخول، اختر الطبيب المعالج، ثم اضغط سبب التأخير. مع «أخرى» تظهر خانة لكتابة السبب. يُكتب رقم الملف فقط إن لزم، دون اسم أو هوية أو تشخيص.</p>
+  ${w ? `<div class="card"><h2>تسجيل مريض تجاوز 4 ساعات</h2><p class="hint">تأكد من وقت الدخول، اختر الطبيب المعالج والسبب، ثم اضغط «تأكيد تسجيل الحالة». لا تُسجَّل الحالة قبل التأكيد. يُكتب رقم الملف فقط إن لزم، دون اسم أو هوية أو تشخيص.</p>
     <form class="sf" data-form="vnew" novalidate>
       <label>وقت دخول المريض القسم<input type="time" name="arr" id="f-varr" value="${def}" required></label>
       <label>الطبيب المعالج${d.doctors.length ? "" : " (أضف أطباء المناوبة أولاً)"}<select name="doctor" id="f-vdoc"><option value="">غير محدد</option>${d.doctors.map(n => `<option value="${esc(n)}">${esc(n)}</option>`).join("")}</select></label>
       <label>رقم ملف المريض (اختياري)<input name="mrn" id="f-vmrn" inputmode="numeric" maxlength="20" autocomplete="off" dir="ltr" placeholder="رقم الملف فقط"></label>
-      <h3>اضغط سبب التأخير لتُسجَّل الحالة مباشرة</h3>
-      <div class="rbtns">${REASONS.map((n, i) => i === REASONS.length - 1 ? `<button type="button" data-act="otherShow" aria-expanded="false" aria-controls="otherBox">${n}</button>` : `<button type="submit" name="reason" value="${i}">${n}</button>`).join("")}</div>
+      <h3>اختر سبب التأخير ثم أكّد التسجيل</h3>
+      <input type="hidden" name="reason" id="f-vpick" value="">
+      <div class="rbtns">${REASONS.map((n, i) => `<button type="button" data-act="pickReason" data-v="${i}" aria-pressed="false">${n}</button>`).join("")}</div>
       <div class="wide" id="otherBox" hidden style="display:grid;gap:10px;border:1px solid var(--accent);border-radius:10px;padding:12px;background:var(--accent-soft)">
-        <label style="color:var(--ink)">اكتب سبب التأخير (دون بيانات مرضى)<input name="note" id="f-vnote" maxlength="300"></label>
-        <div><button class="btn primary" type="submit" name="reason" value="${REASONS.length - 1}">تسجيل الحالة بهذا السبب</button></div>
+        <p id="pickedText" style="margin:0;font-weight:600;color:var(--ink)"></p>
+        <label id="noteWrap" style="color:var(--ink)" hidden>اكتب سبب التأخير (دون بيانات مرضى)<input name="note" id="f-vnote" maxlength="300"></label>
+        <div class="tools"><button class="btn primary" type="submit">تأكيد تسجيل الحالة</button><button class="btn" type="button" data-act="pickCancel">تراجع</button></div>
       </div>
     </form></div>` : `<p class="notice">التسجيل متاح للمشرف المناوب ومدير النظام. اضغط «استلام المناوبة الآن» لتبدأ.</p>`}
   <div class="rhead"><div class="seg" role="group" aria-label="تصفية الحالات">${[["active", `داخل القسم (${st.over})`], ["today", `كل متجاوزي اليوم (${st.lateToday})`]].map(([k, n]) => `<button type="button" data-act="vFilter" data-f="${k}" aria-pressed="${k === S.vFilter}">${n}</button>`).join("")}</div></div>
@@ -675,7 +681,10 @@ const showOut = (id, r, label) => { const o = $(id); o.hidden = false; o.textCon
 const ACT = {
   fill(d){ $("lg-user").value = d.u; $("lg-pass").value = d.p; $("lg-err").textContent = ""; FORMS.login({username: d.u, password: d.p}); },
   async logout(){ await Server.logout(S.token); S.token = null; S.me = null; S.shiftId = S.issueId = null; render(); },
-  otherShow(d, b){ const o = $("otherBox"); o.hidden = false; b.setAttribute("aria-expanded", "true"); $("f-vnote").focus(); o.scrollIntoView({block: "center", behavior: "smooth"}); },
+  pickReason(d){ const i = Number(d.v), other = i === REASONS.length - 1; $("f-vpick").value = String(i); document.querySelectorAll(".rbtns button").forEach(x => x.setAttribute("aria-pressed", String(x.dataset.v === d.v)));
+    $("pickedText").textContent = "السبب المختار: " + REASONS[i]; $("noteWrap").hidden = !other; if (!other) $("f-vnote").value = ""; const o = $("otherBox"); o.hidden = false; if (other) $("f-vnote").focus(); o.scrollIntoView({block: "center", behavior: "smooth"}); },
+  pickCancel(){ $("f-vpick").value = ""; $("otherBox").hidden = true; document.querySelectorAll(".rbtns button").forEach(x => x.setAttribute("aria-pressed", "false")); },
+  async vVoid(d, b){ if (b.dataset.armed !== "1"){ b.dataset.armed = "1"; b.textContent = "اضغط مرة أخرى لتأكيد الإلغاء"; return; } if (await api("visit.void", {id: d.id})){ S.visitId = null; toast("أُلغيت الحالة وحُذفت من الإحصاءات."); render(); } },
   async docRemove(d){ if (await api("doctor.remove", {name: d.name})){ toast("أُزيل الاسم من المناوبة."); render(); } },
   async vExitNow(d){ if (await api("visit.exit", {id: d.id})){ toast("سُجّل خروجه من القسم."); render(); } },
   authTab(d){ const up = d.t === "up"; $("authUp").hidden = !up; $("authIn").style.display = up ? "none" : "flex"; $("tabIn").setAttribute("aria-pressed", String(!up)); $("tabUp").setAttribute("aria-pressed", String(up)); $("lg-err").textContent = ""; if (up) $("lg-ok").hidden = true; },
