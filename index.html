@@ -1,0 +1,709 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>نبض الطوارئ</title>
+<meta name="theme-color" content="#0f3d47">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="نبض الطوارئ">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600&family=Readex+Pro:wght@500;600&display=swap" rel="stylesheet">
+<style>
+
+/* التخطيط: شريط تنقل جانبي ثابت + مساحة عمل؛ الملخص أولاً ثم التفصيل. الألوان الدلالية (طبيعي/متوسط/مرتفع/حرج) مستقلة عن لون الهوية. */
+:root{
+  --bg:#edf2f3; --surface:#ffffff; --surface-2:#f4f8f8; --ink:#12303a; --muted:#587079; --line:#d7e2e5;
+  --accent:#0e7c86; --accent-soft:#dcefF0; --side:#0f3d47; --side-ink:#d5e7ea;
+  --ok:#2e8b57; --warn:#b98207; --high:#d3601f; --crit:#bf3a2b;
+  --t1:#2f6fb5; --t2:#c0392b; --t3:#d1a112; --t4:#3a9a5c; --t5:#8a9ea7;
+  --display:"Readex Pro","IBM Plex Sans Arabic","Segoe UI",Tahoma,sans-serif;
+  --body:"IBM Plex Sans Arabic","Segoe UI",Tahoma,Arial,sans-serif;
+  --shadow:0 1px 2px rgba(18,48,58,.06);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --bg:#0b181d; --surface:#12252e; --surface-2:#172f39; --ink:#e2edef; --muted:#8fa9b1; --line:#24414c;
+    --accent:#45b9c2; --accent-soft:#143b42; --side:#0a2229; --side-ink:#c9dde1;
+    --ok:#4fb47d; --warn:#dba628; --high:#ea7d3f; --crit:#e5604f;
+    --t1:#5b9be0; --t2:#e5604f; --t3:#e0b730; --t4:#57b97a; --t5:#93a8b0;
+    --shadow:none;
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#0b181d; --surface:#12252e; --surface-2:#172f39; --ink:#e2edef; --muted:#8fa9b1; --line:#24414c;
+  --accent:#45b9c2; --accent-soft:#143b42; --side:#0a2229; --side-ink:#c9dde1;
+  --ok:#4fb47d; --warn:#dba628; --high:#ea7d3f; --crit:#e5604f;
+  --t1:#5b9be0; --t2:#e5604f; --t3:#e0b730; --t4:#57b97a; --t5:#93a8b0;
+  --shadow:none;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.6}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+h1,h2,h3{font-family:var(--display);margin:0;text-wrap:balance;line-height:1.35}
+.num{font-family:var(--display);font-variant-numeric:tabular-nums}
+.app{display:grid;grid-template-columns:228px minmax(0,1fr);min-height:100vh}
+.side{background:var(--side);color:var(--side-ink);padding:22px 14px;display:flex;flex-direction:column;gap:22px;position:sticky;top:0;height:100vh}
+.brand{display:flex;gap:10px;align-items:center;padding:0 6px}
+.brand svg{flex:none}
+.brand b{font-family:var(--display);font-weight:600;font-size:14.5px;color:#fff;line-height:1.45}
+.nav{display:flex;flex-direction:column;gap:4px}
+.nav a{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;color:inherit;text-decoration:none;font-weight:500}
+.nav a:hover{background:rgba(255,255,255,.07)}
+.nav a[aria-current="page"]{background:rgba(255,255,255,.13);color:#fff;box-shadow:inset -3px 0 0 #5fd0d8}
+.side-note{margin-top:auto;font-size:12.5px;line-height:1.7;border-top:1px solid rgba(255,255,255,.14);padding:12px 6px 0;opacity:.85}
+.main{padding:20px 24px 40px;display:flex;flex-direction:column;gap:16px;min-width:0}
+.top{display:flex;flex-wrap:wrap;gap:12px 18px;align-items:center;justify-content:space-between}
+.top h1{font-size:21px}
+.top .sub{color:var(--muted);font-size:13.5px}
+.tools{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.seg{display:inline-flex;background:var(--surface);border:1px solid var(--line);border-radius:9px;padding:3px;gap:2px}
+.seg button{border:0;background:transparent;padding:6px 12px;border-radius:6px;cursor:pointer;font-weight:500;color:var(--muted)}
+.seg button[aria-pressed="true"]{background:var(--accent);color:#fff}
+.seg-label{font-size:12.5px;color:var(--muted)}
+.btn{border:1px solid var(--line);background:var(--surface);padding:7px 14px;border-radius:8px;cursor:pointer;font-weight:500}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.small{padding:4px 10px;font-size:13px}
+.pill{display:inline-flex;align-items:center;gap:7px;padding:5px 13px;border-radius:99px;color:#fff;font-weight:600;font-size:13.5px;background:var(--lv)}
+.demo{font-size:12.5px;border:1px dashed var(--muted);color:var(--muted);padding:3px 10px;border-radius:99px}
+.banner{display:flex;gap:12px;align-items:center;background:var(--surface);border:1px solid var(--lv);border-inline-start:6px solid var(--lv);border-radius:10px;padding:11px 16px}
+.banner b{font-family:var(--display)}
+.pulse{width:11px;height:11px;border-radius:50%;background:var(--lv);flex:none;animation:pulse 1.4s infinite}
+@keyframes pulse{0%{box-shadow:0 0 0 0 var(--lv)}70%{box-shadow:0 0 0 9px transparent}100%{box-shadow:0 0 0 0 transparent}}
+@media (prefers-reduced-motion:reduce){.pulse{animation:none}}
+.page{display:none;flex-direction:column;gap:16px}
+.page.on{display:flex}
+.grid{display:grid;gap:14px}
+.kpis{grid-template-columns:repeat(auto-fit,minmax(170px,1fr))}
+.six{grid-template-columns:repeat(3,minmax(0,1fr))}
+@media (max-width:640px){.six{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.two{grid-template-columns:repeat(auto-fit,minmax(320px,1fr))}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px 18px;box-shadow:var(--shadow);min-width:0}
+.card h2{font-size:15.5px;margin-bottom:4px}
+.card .hint{color:var(--muted);font-size:13px;margin:0 0 10px}
+.kpi{border-inline-start:4px solid var(--st,var(--line))}
+.kpi .l{color:var(--muted);font-size:13.5px}
+.kpi .v{font-size:31px;font-weight:600;line-height:1.25}
+.kpi .v small{font-size:14px;font-weight:500;color:var(--muted);margin-inline-start:4px}
+.kpi .s{font-size:12.5px;color:var(--muted)}
+.good{color:var(--ok)}.bad{color:var(--crit)}
+canvas.chart{display:block;width:100%;height:240px}
+.stack{display:flex;height:16px;border-radius:8px;overflow:hidden;background:var(--surface-2);margin:10px 0 14px}
+.stack i{display:block;min-width:2px}
+.tri{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px}
+.tri div{border:1px solid var(--line);border-top:4px solid var(--c);border-radius:9px;padding:8px 11px;background:var(--surface-2)}
+.tri b{display:block;font-size:24px}
+.tri span{font-size:13px}
+.tri em{display:block;font-style:normal;font-size:12px;color:var(--muted)}
+.tw{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th,td{padding:8px 10px;text-align:start;border-bottom:1px solid var(--line);white-space:nowrap}
+th{color:var(--muted);font-weight:500;font-size:13px;background:var(--surface-2)}
+td.n,th.n{font-variant-numeric:tabular-nums}
+.chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--surface-2);border-radius:99px;padding:1px 10px;font-size:12.5px;font-weight:500}
+.chip::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--c,var(--muted))}
+.gauge{position:relative;margin:26px 0 8px}
+.gauge .bar{display:flex;height:14px;border-radius:7px;overflow:hidden}
+.gauge .bar i{display:block}
+.gauge .mk{position:absolute;top:-9px;width:4px;height:32px;border-radius:2px;background:var(--ink);transform:translateX(50%)}
+.gauge .mk b{position:absolute;top:-22px;right:50%;transform:translateX(50%);font-size:13px}
+.glabels{display:flex;font-size:12px;color:var(--muted)}
+.glabels span{white-space:nowrap;overflow:hidden}
+.alerts{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.alerts li{display:flex;gap:10px;align-items:flex-start;border:1px solid var(--line);border-inline-start:5px solid var(--c);border-radius:9px;padding:9px 12px;background:var(--surface-2)}
+.alerts li b{font-size:12.5px;color:var(--c);white-space:nowrap;padding-top:1px}
+.zones{grid-template-columns:repeat(auto-fit,minmax(215px,1fr))}
+.zone{border:1px solid var(--line);border-inline-start:5px solid var(--c);border-radius:10px;padding:12px 14px;background:var(--surface)}
+.zone h3{font-size:14.5px;display:flex;justify-content:space-between;gap:8px;align-items:center}
+.zone .big{font-size:25px;font-weight:600}
+.zone .big small{font-size:13px;color:var(--muted);font-weight:500}
+.meter{height:8px;border-radius:4px;background:var(--surface-2);overflow:hidden;border:1px solid var(--line)}
+.meter i{display:block;height:100%;background:var(--c)}
+.zone p{margin:6px 0 0;font-size:12.5px;color:var(--muted)}
+form.sf{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}
+.sf label{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--muted)}
+.sf .wide{grid-column:1/-1}
+.sf input,.sf select,.sf textarea{border:1px solid var(--line);border-radius:8px;padding:8px 10px;background:var(--surface-2);color:var(--ink);width:100%}
+.sf textarea{min-height:64px;resize:vertical}
+.sf .act{grid-column:1/-1;display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.err{color:var(--crit);font-size:13px}
+.recs{display:flex;flex-direction:column;gap:10px}
+.rec{border:1px solid var(--line);border-inline-start:5px solid var(--c);border-radius:10px;padding:12px 14px;background:var(--surface)}
+.rec header{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;justify-content:space-between}
+.rec h3{font-size:14.5px}
+.rec .facts{display:flex;flex-wrap:wrap;gap:6px 18px;font-size:13.5px;margin:6px 0}
+.rec dl{margin:6px 0 0;display:grid;grid-template-columns:auto 1fr;gap:3px 12px;font-size:13.5px}
+.rec dt{color:var(--muted)}.rec dd{margin:0;white-space:pre-wrap;overflow-wrap:anywhere}
+.rhead{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between}
+.toast{position:fixed;bottom:22px;inset-inline-start:22px;background:var(--ink);color:var(--surface);padding:10px 16px;border-radius:9px;font-size:14px;opacity:0;pointer-events:none;transition:opacity .2s;max-width:min(420px,calc(100vw - 44px));z-index:9}
+.toast.on{opacity:1}
+@media (max-width:920px){
+  .app{grid-template-columns:1fr}
+  .side{position:static;height:auto;flex-direction:row;flex-wrap:wrap;align-items:center;gap:10px;padding:10px 14px}
+  .nav{flex-direction:row;flex-wrap:wrap}
+  .nav a{padding:7px 11px}
+  .nav a[aria-current="page"]{box-shadow:inset 0 -3px 0 #5fd0d8}
+  .side-note{display:none}
+  .main{padding:16px}
+}
+
+[hidden]{display:none!important}
+html{-webkit-text-size-adjust:100%}
+input,select,textarea{font-size:16px}
+.btn{min-height:42px}.btn.small{min-height:34px}.seg button{min-height:38px}
+.app{min-height:100dvh}.login{min-height:100dvh}
+.main{width:100%;max-width:1320px;margin-inline:auto}
+@media (min-width:921px) and (max-width:1180px){.app{grid-template-columns:196px minmax(0,1fr)}.main{padding:18px 16px 32px}.side{padding:18px 10px}}
+@media (max-width:920px){.side{position:sticky;top:0;z-index:6;padding:8px 12px}.brand svg{width:28px;height:28px}.nav a{padding:8px 12px}}
+@media (max-width:520px){.top h1{font-size:19px}.card{padding:14px}.kpi .v{font-size:27px}.tools{gap:8px}}
+@media (display-mode:standalone){.demo{display:none}}
+.login{min-height:100vh;display:grid;place-items:center;padding:24px 16px}
+.login .box{width:min(440px,100%);display:flex;flex-direction:column;gap:14px}
+.login h1{font-size:24px}
+.login .brand b{color:var(--ink);font-size:20px}
+.notice{border:1px dashed var(--muted);border-radius:9px;padding:9px 12px;font-size:13px;color:var(--muted);background:var(--surface-2)}
+.notice.ok{border-style:solid;border-color:var(--ok);color:var(--ink)}
+.demo-acc{display:flex;flex-direction:column;gap:6px}
+.demo-acc button{display:flex;justify-content:space-between;gap:10px;text-align:start;border:1px solid var(--line);background:var(--surface-2);border-radius:8px;padding:7px 11px;cursor:pointer}
+.demo-acc button:hover{border-color:var(--accent)}
+.demo-acc small{color:var(--muted)}
+.main,.card,.top>div{min-width:0}
+.userchip{display:inline-flex;flex-direction:column;line-height:1.35;border:1px solid var(--line);background:var(--surface);border-radius:9px;padding:4px 12px;font-size:13.5px}
+.userchip small{color:var(--muted);font-size:12px}
+.cards3{grid-template-columns:repeat(auto-fit,minmax(230px,1fr))}
+.mini{border:1px solid var(--line);border-inline-start:5px solid var(--c,var(--line));border-radius:10px;padding:12px 14px;background:var(--surface)}
+.mini h3{font-size:14.5px;display:flex;justify-content:space-between;gap:8px;align-items:center;margin-bottom:6px}
+.mini p{margin:2px 0;font-size:13.5px}
+.mini .m{color:var(--muted)}
+.row{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;justify-content:space-between}
+.tl{list-style:none;margin:8px 0 0;padding:0;border-inline-start:2px solid var(--line)}
+.tl li{position:relative;padding:0 16px 12px 0;font-size:13.5px}
+.tl li::before{content:"";position:absolute;right:-6px;top:7px;width:10px;height:10px;border-radius:50%;background:var(--c,var(--muted))}
+.tl time{color:var(--muted);font-size:12.5px;display:block}
+.issue{border:1px solid var(--line);border-inline-start:5px solid var(--c);border-radius:10px;padding:10px 13px;background:var(--surface);display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;justify-content:space-between}
+.issue b{font-weight:600}
+.issue .meta{font-size:12.5px;color:var(--muted);display:block}
+.list{display:flex;flex-direction:column;gap:8px}
+.sf input:disabled,.sf select:disabled,.sf textarea:disabled{opacity:.75;cursor:not-allowed}
+.sf h3{grid-column:1/-1;font-size:13.5px;color:var(--muted);font-family:var(--body);font-weight:500;margin-top:4px}
+.doc h3{font-size:14.5px;margin:12px 0 4px}
+.doc ul{margin:0;padding-inline-start:20px}
+.doc li{margin:3px 0}
+.doc p{margin:4px 0;max-width:75ch}
+.mx td,.mx th{text-align:center}
+.mx td:first-child,.mx th:first-child{text-align:start}
+select.inl{border:1px solid var(--line);border-radius:7px;padding:3px 8px;background:var(--surface-2)}
+input.inl{border:1px solid var(--line);border-radius:8px;padding:7px 10px;background:var(--surface-2);min-width:0;width:min(280px,100%)}
+.rbtns{grid-column:1/-1;display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px}
+.rbtns button{padding:13px 10px;border:1px solid var(--line);background:var(--surface-2);border-radius:9px;cursor:pointer;font-weight:500;line-height:1.4}
+.rbtns button:hover,.rbtns button:focus-visible{border-color:var(--accent);background:var(--accent-soft)}
+@media (max-width:920px){.app{grid-template-columns:minmax(0,1fr);grid-template-rows:auto 1fr}.side{min-width:0;align-content:flex-start}.nav{flex-wrap:nowrap;overflow-x:auto;width:100%;min-width:0}.nav a{white-space:nowrap}.side{gap:8px}}
+</style>
+</head>
+<body>
+<div class="login" id="login" hidden>
+  <div class="box card">
+    <div class="brand"><svg width="38" height="38" viewBox="0 0 34 34" aria-hidden="true"><rect width="34" height="34" rx="9" fill="#0e7c86"/><path d="M5 18h6l3-8 5 14 3-8h7" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg><b>نبض الطوارئ</b></div>
+    <p class="hint" style="margin:0">متابعة رحلة المريض في قسم الطوارئ · هدف 4 ساعات</p>
+    <div id="authSetup" hidden>
+      <p class="notice ok" style="margin:0 0 12px">إعداد أول مرة: أنشئ حساب مدير النظام. يظهر هذا النموذج مرة واحدة فقط.</p>
+      <form class="sf" data-form="setup" style="grid-template-columns:1fr" novalidate>
+        <label>اسمك كما يظهر في السجلات<input name="name" id="st-name" maxlength="40" required></label>
+        <label>اسم المستخدم (أحرف إنجليزية صغيرة وأرقام)<input name="username" id="st-user" maxlength="20" autocapitalize="none" dir="ltr" required></label>
+        <label>كلمة المرور (8 خانات على الأقل، فيها حرف ورقم)<input name="password" id="st-pass" type="password" autocomplete="new-password" dir="ltr" required></label>
+        <label>تأكيد كلمة المرور<input name="password2" id="st-pass2" type="password" autocomplete="new-password" dir="ltr" required></label>
+        <div class="act"><button class="btn primary" type="submit">إنشاء حساب المدير</button><span class="err" id="st-err" role="alert"></span></div>
+      </form>
+    </div>
+    <div id="authMain" style="display:flex;flex-direction:column;gap:14px">
+    <div class="seg" role="group" aria-label="الدخول أو إنشاء حساب" style="align-self:flex-start"><button type="button" data-act="authTab" data-t="in" id="tabIn" aria-pressed="true">دخول</button><button type="button" data-act="authTab" data-t="up" id="tabUp" aria-pressed="false">حساب جديد</button></div>
+    <div id="authIn" style="display:flex;flex-direction:column;gap:14px">
+      <p class="notice ok" id="lg-ok" hidden></p>
+      <form class="sf" data-form="login" style="grid-template-columns:1fr" novalidate>
+        <label>اسم المستخدم<input name="username" id="lg-user" autocomplete="username" autocapitalize="none" dir="ltr" required></label>
+        <label>كلمة المرور<input name="password" id="lg-pass" type="password" autocomplete="current-password" dir="ltr" required></label>
+        <div class="act"><button class="btn primary" type="submit">دخول</button><span class="err" id="lg-err" role="alert"></span></div>
+      </form>
+      <div id="demoBlock"><p class="hint" style="margin:0 0 6px">حسابات تجريبية. اضغط الحساب الذي تريد للدخول به مباشرة:</p><div class="demo-acc" id="demoAcc"></div></div>
+    </div>
+    <div id="authUp" hidden>
+      <form class="sf" data-form="signup" style="grid-template-columns:1fr" novalidate>
+        <label>الاسم كما يظهر في السجلات<input name="name" id="su-name" maxlength="40" autocomplete="name" required></label>
+        <label>اسم المستخدم (أحرف إنجليزية صغيرة وأرقام)<input name="username" id="su-user" maxlength="20" autocomplete="username" autocapitalize="none" dir="ltr" required></label>
+        <label>نوع الحساب<select name="role" id="su-role"><option value="supervisor">مشرف مناوبة</option><option value="viewer">مستخدم اطلاع</option></select></label>
+        <label>كلمة المرور (8 خانات على الأقل، فيها حرف ورقم)<input name="password" id="su-pass" type="password" autocomplete="new-password" dir="ltr" required></label>
+        <label>تأكيد كلمة المرور<input name="password2" id="su-pass2" type="password" autocomplete="new-password" dir="ltr" required></label>
+        <div class="act"><button class="btn primary" type="submit">إنشاء الحساب</button><span class="err" id="su-err" role="alert"></span></div>
+      </form>
+      <p class="hint" style="margin:10px 0 0">الحساب الجديد لا يعمل حتى يعتمده مدير النظام من صفحة «المستخدمون»، وهو من يحدد الدور النهائي.</p>
+    </div>
+    </div>
+    <p class="notice" id="loginNote">لا تُكتب في النظام أسماء مرضى ولا أرقام هويات ولا تشخيصات. الحساب الجديد لا يعمل حتى يعتمده مدير النظام.</p>
+  </div>
+</div>
+
+<div class="app" id="app" hidden>
+  <aside class="side">
+    <div class="brand"><svg width="34" height="34" viewBox="0 0 34 34" aria-hidden="true"><rect width="34" height="34" rx="9" fill="#5fd0d8"/><path d="M5 18h6l3-8 5 14 3-8h7" fill="none" stroke="#0f3d47" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg><b>نبض الطوارئ</b></div>
+    <nav class="nav" id="nav" aria-label="أقسام النظام"></nav>
+    <p class="side-note">لا تُكتب في النظام أسماء مرضى ولا أرقام هويات ولا تشخيصات. رقم الملف اختياري ويظهر للمشرفين والمدير فقط.</p>
+  </aside>
+  <main class="main">
+    <div class="top">
+      <div><h1 id="pageTitle"></h1><div class="sub"><span id="clock"></span></div></div>
+      <div class="tools"><span class="userchip" id="userchip"></span><button class="btn" type="button" data-act="logout">تسجيل الخروج</button></div>
+    </div>
+    <section class="page on" id="page"></section>
+  </main>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+"use strict";
+/* ============ أدوات عامة ============ */
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const fmt = (n, d = 0) => Number(n).toLocaleString("en-US", {minimumFractionDigits: d, maximumFractionDigits: d});
+const rng = seed => () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+const dFmt = new Intl.DateTimeFormat("ar-SA-u-ca-gregory-nu-latn", {weekday: "short", day: "numeric", month: "short"});
+const dLong = new Intl.DateTimeFormat("ar-SA-u-ca-gregory-nu-latn", {weekday: "long", day: "numeric", month: "long", year: "numeric"});
+const iso = d => d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+let toastT; function toast(m){ const t = $("toast"); t.textContent = m; t.classList.add("on"); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove("on"), 3800); }
+
+
+/* ============ الرسوم البيانية (Canvas، من اليمين إلى اليسار) ============ */
+const nice = v => { if (v <= 0) return 4; const p = Math.pow(10, Math.floor(Math.log10(v))), m = v / p; return (m <= 1 ? 1 : m <= 2 ? 2 : m <= 4 ? 4 : m <= 5 ? 5 : m <= 8 ? 8 : 10) * p; };
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const FONT = '"IBM Plex Sans Arabic","Segoe UI",Tahoma,Arial,sans-serif';
+const pal = () => ({ink: css("--ink"), muted: css("--muted"), line: css("--line"), surface: css("--surface"), font: FONT, fs: 12});
+function frame(ctx, x, y, w, h, c, p, max){
+  const fs = p.fs, padR = fs * 3.2, padL = fs * 1.2, padT = c.legend ? fs * 2.6 : fs * 1.6, padB = fs * 2.1;
+  const f = {px: x + padL, pw: w - padL - padR, py: y + padT, ph: h - padT - padB};
+  ctx.font = `${fs}px ${p.font}`; ctx.textBaseline = "middle"; ctx.lineWidth = 1;
+  for (let k = 0; k <= 4; k++){
+    const yy = Math.round(f.py + f.ph - k / 4 * f.ph) + .5;
+    ctx.strokeStyle = p.line; ctx.beginPath(); ctx.moveTo(f.px, yy); ctx.lineTo(f.px + f.pw, yy); ctx.stroke();
+    ctx.fillStyle = p.muted; ctx.textAlign = "left"; ctx.fillText(fmt(max * k / 4), f.px + f.pw + fs * .6, yy);
+  }
+  if (c.legend){
+    let lx = x + w - padR;
+    for (const s of c.series){
+      ctx.fillStyle = s.color; ctx.fillRect(lx - fs * .8, y + fs * .5, fs * .8, fs * .8);
+      ctx.fillStyle = p.ink; ctx.textAlign = "right"; ctx.fillText(s.name, lx - fs * 1.2, y + fs * .95);
+      lx -= ctx.measureText(s.name).width + fs * 3;
+    }
+  }
+  return f;
+}
+function lineChart(ctx, x, y, w, h, c, p){
+  ctx.save(); ctx.direction = "rtl";
+  const fs = p.fs, n = c.labels.length;
+  const max = nice(Math.max(c.yMax || 0, ...c.series.flatMap(s => s.values), ...(c.thresholds || []).map(t => t.v)));
+  const f = frame(ctx, x, y, w, h, c, p, max);
+  const X = i => f.px + f.pw - i * f.pw / Math.max(1, n - 1), Y = v => f.py + f.ph - v / max * f.ph;
+  const every = Math.max(1, Math.ceil(n / Math.max(2, Math.floor(f.pw / (fs * 4.2)))));
+  ctx.fillStyle = p.muted; ctx.textAlign = "center";
+  c.labels.forEach((l, i) => { if ((n - 1 - i) % every === 0) ctx.fillText(l, X(i), f.py + f.ph + fs * 1.2); });
+  for (const t of c.thresholds || []){
+    ctx.strokeStyle = t.color; ctx.setLineDash([5, 4]); ctx.beginPath(); ctx.moveTo(f.px, Y(t.v)); ctx.lineTo(f.px + f.pw, Y(t.v)); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle = t.color; ctx.textAlign = "right"; ctx.fillText(t.label, f.px + f.pw - 4, Y(t.v) - fs * .75);
+  }
+  for (const s of c.series){
+    ctx.beginPath(); s.values.forEach((v, i) => i ? ctx.lineTo(X(i), Y(v)) : ctx.moveTo(X(i), Y(v)));
+    ctx.strokeStyle = s.color; ctx.lineWidth = fs / 6; ctx.lineJoin = "round"; ctx.stroke();
+    if (s.fill){ ctx.lineTo(X(n - 1), f.py + f.ph); ctx.lineTo(X(0), f.py + f.ph); ctx.closePath(); ctx.globalAlpha = .13; ctx.fillStyle = s.color; ctx.fill(); ctx.globalAlpha = 1; }
+    const lv = s.values[n - 1];
+    ctx.fillStyle = s.color; ctx.beginPath(); ctx.arc(X(n - 1), Y(lv), fs / 3, 0, 7); ctx.fill();
+    ctx.fillStyle = p.ink; ctx.textAlign = "left"; ctx.font = `600 ${fs}px ${p.font}`; ctx.fillText(fmt(lv), X(n - 1) + fs * .6, Math.max(f.py + fs * .6, Y(lv) - fs)); ctx.font = `${fs}px ${p.font}`;
+  }
+  ctx.restore();
+}
+function barChart(ctx, x, y, w, h, c, p){
+  ctx.save(); ctx.direction = "rtl";
+  const fs = p.fs, n = c.labels.length, m = c.series.length;
+  const max = nice(Math.max(...c.series.flatMap(s => s.values), ...(c.marks || [])) * 1.08);
+  const f = frame(ctx, x, y, w, h, c, p, max);
+  const gw = f.pw / n, bw = Math.min(gw * .7 / m, fs * 4.5), Y = v => f.py + f.ph - v / max * f.ph;
+  c.labels.forEach((l, i) => {
+    const cx = f.px + f.pw - (i + .5) * gw;
+    ctx.fillStyle = p.muted; ctx.textAlign = "center"; ctx.fillText(l, cx, f.py + f.ph + fs * 1.2);
+    c.series.forEach((s, j) => {
+      const bx = cx + (m / 2 - j - 1) * bw + 1, v = s.values[i];
+      ctx.fillStyle = (s.colors && s.colors[i]) || s.color; ctx.fillRect(bx, Y(v), bw - 2, f.py + f.ph - Y(v));
+      ctx.fillStyle = p.ink; ctx.fillText(fmt(v), bx + bw / 2 - 1, Y(c.marks ? Math.max(v, c.marks[i]) : v) - fs * .85);
+    });
+    if (c.marks){ ctx.strokeStyle = p.ink; ctx.lineWidth = fs / 6; ctx.setLineDash([4, 3]); ctx.beginPath(); ctx.moveTo(cx - gw * .4, Y(c.marks[i])); ctx.lineTo(cx + gw * .4, Y(c.marks[i])); ctx.stroke(); ctx.setLineDash([]); }
+  });
+  ctx.restore();
+}
+function mount(id, fn, cfg){
+  const c = $(id); if (!c) return; const r = c.getBoundingClientRect(); if (!r.width) return;
+  const d = window.devicePixelRatio || 1; c.width = Math.round(r.width * d); c.height = Math.round(r.height * d);
+  const ctx = c.getContext("2d"); ctx.scale(d, d); fn(ctx, 0, 0, r.width, r.height, cfg, pal());
+}
+
+
+/* ============ التصدير: Excel ============ */
+const CRC = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++){ let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
+const crc32 = b => { let c = 0xFFFFFFFF; for (let i = 0; i < b.length; i++) c = CRC[(c ^ b[i]) & 255] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; };
+function zip(files){
+  const enc = new TextEncoder(), parts = [], cd = []; let off = 0, cdSize = 0;
+  for (const f of files){
+    const nm = enc.encode(f.name), data = typeof f.data === "string" ? enc.encode(f.data) : f.data, crc = crc32(data), sz = data.length;
+    const lh = new DataView(new ArrayBuffer(30)); lh.setUint32(0, 0x04034b50, true); lh.setUint16(4, 20, true); lh.setUint16(6, 0x0800, true); lh.setUint16(12, 0x21, true); lh.setUint32(14, crc, true); lh.setUint32(18, sz, true); lh.setUint32(22, sz, true); lh.setUint16(26, nm.length, true);
+    parts.push(new Uint8Array(lh.buffer), nm, data);
+    const ch = new DataView(new ArrayBuffer(46)); ch.setUint32(0, 0x02014b50, true); ch.setUint16(4, 20, true); ch.setUint16(6, 20, true); ch.setUint16(8, 0x0800, true); ch.setUint16(14, 0x21, true); ch.setUint32(16, crc, true); ch.setUint32(20, sz, true); ch.setUint32(24, sz, true); ch.setUint16(28, nm.length, true); ch.setUint32(42, off, true);
+    cd.push(new Uint8Array(ch.buffer), nm); off += 30 + nm.length + sz; cdSize += 46 + nm.length;
+  }
+  const e = new DataView(new ArrayBuffer(22)); e.setUint32(0, 0x06054b50, true); e.setUint16(8, files.length, true); e.setUint16(10, files.length, true); e.setUint32(12, cdSize, true); e.setUint32(16, off, true);
+  return new Blob([...parts, ...cd, new Uint8Array(e.buffer)], {type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});
+}
+function makeXLSX(sheets){
+  const col = i => String.fromCharCode(65 + i), NS = 'xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"', H = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>';
+  const sheetXML = s => `${H}<worksheet ${NS}><sheetViews><sheetView workbookViewId="0" rightToLeft="1"/></sheetViews><cols><col min="1" max="1" width="30" customWidth="1"/><col min="2" max="10" width="22" customWidth="1"/></cols><sheetData>${
+    s.rows.map((r, i) => `<row r="${i + 1}">${r.map((c, j) => { const ref = col(j) + (i + 1), st = s.bold.includes(i) ? ' s="1"' : ""; return typeof c === "number" ? `<c r="${ref}"${st}><v>${c}</v></c>` : `<c r="${ref}" t="inlineStr"${st}><is><t xml:space="preserve">${esc(c)}</t></is></c>`; }).join("")}</row>`).join("")}</sheetData></worksheet>`;
+  return zip([
+    {name: "[Content_Types].xml", data: `${H}<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>${sheets.map((_, i) => `<Override PartName="/xl/worksheets/sheet${i + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join("")}</Types>`},
+    {name: "_rels/.rels", data: `${H}<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`},
+    {name: "xl/workbook.xml", data: `${H}<workbook ${NS} xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><bookViews><workbookView/></bookViews><sheets>${sheets.map((s, i) => `<sheet name="${esc(s.name)}" sheetId="${i + 1}" r:id="rId${i + 1}"/>`).join("")}</sheets></workbook>`},
+    {name: "xl/_rels/workbook.xml.rels", data: `${H}<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${sheets.map((_, i) => `<Relationship Id="rId${i + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${i + 1}.xml"/>`).join("")}<Relationship Id="rId${sheets.length + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`},
+    {name: "xl/styles.xml", data: `${H}<styleSheet ${NS}><fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font></fonts><fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="2"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`},
+    ...sheets.map((s, i) => ({name: `xl/worksheets/sheet${i + 1}.xml`, data: sheetXML(s)}))]);
+}
+/* ============ التصدير: PDF (صفحات مرسومة على Canvas لضمان سلامة الحروف العربية) ============ */
+function makePDF(canvases){
+  const enc = new TextEncoder(), parts = [], offs = []; let len = 0;
+  const push = d => { if (typeof d === "string") d = enc.encode(d); parts.push(d); len += d.length; };
+  const obj = (n, body, stream) => { offs[n] = len; push(`${n} 0 obj\n${body}\n`); if (stream){ push("stream\n"); push(stream); push("\nendstream\n"); } push("endobj\n"); };
+  const jp = canvases.map(c => { const b = atob(c.toDataURL("image/jpeg", .9).split(",")[1]), u = new Uint8Array(b.length); for (let i = 0; i < b.length; i++) u[i] = b.charCodeAt(i); return {u, w: c.width, h: c.height}; });
+  push("%PDF-1.4\n");
+  obj(1, "<< /Type /Catalog /Pages 2 0 R >>");
+  obj(2, `<< /Type /Pages /Count ${jp.length} /Kids [${jp.map((_, i) => `${3 + i * 3} 0 R`).join(" ")}] >>`);
+  jp.forEach((j, i) => { const p = 3 + i * 3, cs = "q 595 0 0 842 0 0 cm /Im0 Do Q";
+    obj(p, `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /XObject << /Im0 ${p + 2} 0 R >> >> /Contents ${p + 1} 0 R >>`);
+    obj(p + 1, `<< /Length ${cs.length} >>`, cs);
+    obj(p + 2, `<< /Type /XObject /Subtype /Image /Width ${j.w} /Height ${j.h} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${j.u.length} >>`, j.u); });
+  const N = 2 + jp.length * 3, xo = len;
+  push(`xref\n0 ${N + 1}\n0000000000 65535 f \n`); for (let i = 1; i <= N; i++) push(String(offs[i]).padStart(10, "0") + " 00000 n \n");
+  push(`trailer\n<< /Size ${N + 1} /Root 1 0 R >>\nstartxref\n${xo}\n%%EOF`);
+  return new Blob(parts, {type: "application/pdf"});
+}
+async function saveFile(filename, blob){
+  let dl = null; try { if (window.claude && window.claude.use) dl = await window.claude.use("downloads"); } catch(e){}
+  if (dl){
+    try { await dl.save({filename, data: blob}); toast("تم حفظ الملف."); }
+    catch(e){ toast(e && e.code === "declined" ? "أُلغي حفظ الملف." : e && e.code === "rate_limited" ? "يوجد طلب حفظ مفتوح. أكمله ثم أعد المحاولة." : "تعذّر حفظ الملف في هذا العرض."); }
+    return;
+  }
+  try { const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = filename; document.body.appendChild(a); a.click(); a.remove(); toast("جُهّز الملف. إن لم يبدأ التنزيل فافتح الصفحة من Claude مباشرة."); }
+  catch(e){ toast("التصدير غير متاح في هذا العرض."); }
+}
+const stamp = () => iso(new Date());
+
+
+
+/* ============ ثوابت مشتركة ============ */
+const LOC = "ar-SA-u-ca-gregory-nu-latn";
+const tFmt = new Intl.DateTimeFormat(LOC, {day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", hour12: false});
+const D = s => new Date(s + "T12:00:00");
+const TRIAGE = [{lv: 1, name: "إنعاش", c: "--t1"}, {lv: 2, name: "طارئ", c: "--t2"}, {lv: 3, name: "عاجل", c: "--t3"}, {lv: 4, name: "أقل عجلة", c: "--t4"}, {lv: 5, name: "غير عاجل", c: "--t5"}];
+const LEVELS = [{id: "normal", name: "طبيعي", c: "--ok", from: 0}, {id: "medium", name: "متوسط", c: "--warn", from: 50}, {id: "high", name: "مرتفع", c: "--high", from: 70}, {id: "critical", name: "حرج", c: "--crit", from: 90}];
+const levelOf = i => [...LEVELS].reverse().find(l => i >= l.from);
+const SHIFTS = ["الصباحية", "المسائية", "الليلية"], SLOT_START = [7, 15, 23];
+const shiftOfHour = h => h >= 7 && h < 15 ? 0 : h >= 15 && h < 23 ? 1 : 2;
+const slotOf = d => { const x = new Date(d), h = x.getHours(); if (h < 7) x.setDate(x.getDate() - 1); return {date: iso(x), type: shiftOfHour(h)}; };
+const slotStart = (date, type) => { const x = new Date(date + "T00:00:00"); x.setHours(SLOT_START[type]); return x.getTime(); };
+const nextSlot = (date, type) => { if (type < 2) return {date, type: type + 1}; const x = D(date); x.setDate(x.getDate() + 1); return {date: iso(x), type: 0}; };
+const ROLES = {admin: "مدير النظام / مشرف القسم", supervisor: "مشرف مناوبة", viewer: "مستخدم اطلاع"};
+const REASONS = ["انتظار سرير تنويم", "انتظار نتائج المختبر", "انتظار الأشعة", "انتظار استشارة تخصصية", "ازدحام القسم أو نقص الكوادر", "انتظار نقل أو إسعاف", "سبب يخص المريض أو ذويه", "انتظار قرار الطبيب المعالج", "أخرى"];
+const LIMIT = 240;
+/* مصفوفة الصلاحيات: مصدر واحد يستخدمه الخادم للتحقق وتستخدمه الواجهة لإظهار القوائم فقط. */
+const PERMS = {
+  "dashboard.view": ["admin", "supervisor", "viewer"], "delays.view": ["admin", "supervisor", "viewer"],
+  "visits.view": ["admin", "supervisor"], "visit.write": ["admin", "supervisor"],
+  "duty.take": ["supervisor"], "handover.view": ["admin", "supervisor"], "users.manage": ["admin"], "audit.view": ["admin"]};
+const PERM_LABEL = {"dashboard.view": "عرض لوحة القيادة (إجماليات)", "delays.view": "عرض تقرير التأخير (الاطلاع: إجماليات فقط)", "visits.view": "عرض الحالات المتجاوزة برموز مجهولة", "visit.write": "تسجيل الحالات المتجاوزة وأطباء المناوبة وإجمالي الزيارات (المشرف: أثناء مناوبته فقط)", "duty.take": "استلام المناوبة", "handover.view": "عرض سجل تسليم المناوبات", "users.manage": "إدارة المستخدمين والصلاحيات", "audit.view": "عرض سجل التدقيق"};
+const ACTION_LABEL = {"login": "تسجيل دخول", "login.fail": "محاولة دخول فاشلة", "logout": "تسجيل خروج", "denied": "طلب مرفوض", "duty.take": "استلام المناوبة", "user.create": "إنشاء مستخدم", "user.update": "تعديل مستخدم", "visit.create": "تسجيل حالة متجاوزة", "visit.exit": "تسجيل خروج", "visit.reason": "تعديل سبب تأخير", "shift.total": "تحديث إجمالي الزيارات", "doctor.add": "إضافة طبيب للمناوبة", "doctor.remove": "إزالة طبيب من المناوبة", "signup": "طلب حساب جديد"};
+
+/* ============ الاتصال بالخادم ============
+   كل البيانات والصلاحيات في الخادم (server.js). الواجهة تعرض ما يعيده الخادم فقط ولا تحفظ شيئاً في المتصفح. */
+const Server = (() => {
+  let csrf = "";
+  const call = async (action, payload) => {
+    try {
+      const r = await fetch("api", {method: "POST", credentials: "same-origin", cache: "no-store", headers: {"Content-Type": "application/json", "X-CSRF": csrf}, body: JSON.stringify({action, payload: payload || {}})});
+      const j = await r.json(); if (j && j.csrf) csrf = j.csrf; return j;
+    } catch(e){ return {ok: false, code: "network", message: "تعذّر الاتصال بالخادم. تحقق من الإنترنت ثم حاول مرة أخرى."}; }
+  };
+  return {
+    demo: false,
+    async status(){ const j = await call("auth.me"); return j.ok ? j.data : {setup: false, user: null}; },
+    demoAccounts(){ return []; },
+    async login(username, password){ const j = await call("auth.login", {username, password}); return j.ok ? {ok: true, token: "session", user: j.data.user} : j; },
+    async logout(){ await call("auth.logout"); },
+    signup(p){ return call("auth.signup", p); },
+    setup(p){ return call("auth.setup", p); },
+    reset(){ return false; },
+    request(token, action, p){ return call(action, p); }
+  };
+})();
+
+/* ============ الواجهة ============ */
+const S = {token: null, me: null, route: "dashboard", shiftId: null, issueId: null, issueFilter: "open", period: "weekly", visitId: null, vFilter: "active", dPeriod: "today", flash: "", newUser: null};
+const NAV = [["dashboard", "لوحة القيادة", "dashboard.view"], ["journey", "حالات التأخير", "visits.view"], ["delays", "تقرير التأخير", "delays.view"], ["handovers", "تسليم المناوبة", "handover.view"], ["users", "المستخدمون", "users.manage"], ["audit", "سجل التدقيق", "audit.view"]];
+const can = p => !!S.me && (!p || PERMS[p].includes(S.me.role));
+async function api(action, p){
+  const r = await Server.request(S.token, action, p); if (r.ok) return r.data;
+  if (r.code === "unauthenticated"){ S.token = null; S.me = null; S.flash = r.message; render(); return null; }
+  toast(r.message); return null;
+}
+const chip = o => `<span class="chip" style="--c:var(${o.c})">${o.n}</span>`;
+const kpi = (l, v, unit, s, st) => `<div class="card kpi" ${st ? `style="--st:var(${st})"` : ""}><div class="l">${l}</div><div class="v num">${v}${unit ? `<small>${unit}</small>` : ""}</div><div class="s">${s}</div></div>`;
+const tableHTML = (cols, rows) => `<div class="tw"><table><thead><tr>${cols.map((c, i) => `<th${i ? ' class="n"' : ""}>${c}</th>`).join("")}</tr></thead><tbody>${rows.map(r => `<tr>${r.map((c, i) => `<td${i ? ' class="n"' : ""}>${typeof c === "number" ? fmt(c) : c}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`;
+
+/* ---------- لوحة القيادة ---------- */
+const bars = (items, color) => `<div class="list">${items.map(([n, c, max, extra]) => `<div><div class="row"><span>${n}</span><b class="num" dir="ltr">${c}${extra || ""}</b></div><div class="meter" style="--c:var(${color})"><i style="width:${max ? c / max * 100 : 0}%"></i></div></div>`).join("")}</div>`;
+async function pgDashboard(el){
+  const d = await api("dashboard.get"); if (!d) return;
+  const j = d.journey, w = d.week, rmax = Math.max(1, ...d.reasons.map(x => x.count)), pc = p => p === null ? "--muted" : p >= 90 ? "--ok" : p >= 80 ? "--warn" : "--crit", tr = d.trend.filter(x => x.pct !== null);
+  el.innerHTML = `
+  <div class="card row"><div><h2>رحلة المريض · هدف 4 ساعات</h2><p class="hint" style="margin:0">من دخول المريض القسم حتى خروجه منه.${d.duty ? ` المشرف المناوب: ${esc(d.duty.holder)} منذ ${tFmt.format(d.duty.since)}. الأطباء الموجودون: ${d.duty.doctors ? (d.duty.doctors.map(esc).join("، ") || "لم يُضف أحد") : d.duty.doctorCount}.` : ""}</p></div>${can("visits.view") ? '<a class="btn primary" href="#journey" style="text-decoration:none">تسجيل مريض متأخر</a>' : ""}</div>
+  ${d.pendingUsers ? `<div class="banner" style="--lv:var(--warn)"><span class="pulse"></span><div><b>${d.pendingUsers} حساب جديد بانتظار اعتمادك.</b> <a href="#users" style="color:var(--accent)">فتح «المستخدمون»</a></div></div>` : ""}
+  ${j.over ? `<div class="banner" role="alert" style="--lv:var(--crit)"><span class="pulse"></span><div><b>${j.over} حالة تجاوزت 4 ساعات وما زالت داخل القسم.</b> <a href="#${can("visits.view") ? "journey" : "delays"}" style="color:var(--accent)">عرض التفاصيل</a></div></div>` : ""}
+  <div class="grid six">
+    ${kpi("زيارات اليوم", j.visitsToday ? fmt(j.visitsToday) : "—", "", j.visitsToday ? "أدخلها المشرفون" : "اختياري، لم يُدخل بعد", "--accent")}
+    ${kpi("تجاوزوا 4 ساعات اليوم", fmt(j.lateToday), "حالة", "لكل حالة سبب مسجّل", j.lateToday ? "--crit" : "--ok")}
+    ${kpi("الالتزام اليوم", j.pct === null ? "—" : fmt(j.pct), j.pct === null ? "" : "%", j.pct === null ? "تظهر عند إدخال إجمالي الزيارات" : "أنهوا رحلتهم خلال 4 ساعات", pc(j.pct))}
+    ${kpi("ما زالوا داخل القسم", fmt(j.over), "حالة", "من المتجاوزين", j.over ? "--crit" : "--ok")}
+    ${kpi("الالتزام آخر 7 أيام", w.pct === null ? "—" : fmt(w.pct), w.pct === null ? "" : "%", w.pct === null ? `${fmt(w.late)} حالة متجاوزة` : `من ${fmt(w.visits)} زيارة أُدخل إجماليها`, pc(w.pct))}
+    ${kpi("متوسط مدة المتجاوزين", durFmt(w.avg), "", "آخر 7 أيام", "--high")}
+  </div>
+  <div class="grid two">
+    <div class="card"><h2>نسبة الالتزام بالأربع ساعات</h2><p class="hint">آخر 7 أيام، الأحدث إلى اليسار.</p><canvas class="chart" id="c-pct" role="img" aria-label="نسبة الالتزام اليومية"></canvas></div>
+    <div class="card"><h2>أبرز أسباب التأخير</h2><p class="hint">${w.late} حالة متجاوزة في آخر 7 أيام.</p>${d.reasons.length ? bars(d.reasons.map(x => [x.name, x.count, rmax, ` · ${Math.round(x.count / w.late * 100)}%`]), "--high") : '<p class="hint">لا توجد حالات متجاوزة.</p>'}</div>
+  </div>
+  <div class="card"><h2>الالتزام اليوم حسب المناوبة</h2><p class="hint">حسب المناوبة التي وصل فيها المريض.</p>${tableHTML(["المناوبة", "الزيارات", "تجاوزت 4 ساعات", "الالتزام %"], d.byShift.map(x => [SHIFTS[x.type], x.visits || "—", x.late, x.pct === null ? "—" : x.pct]))}</div>`;
+  if (tr.length) mount("c-pct", lineChart, {labels: tr.map(x => new Intl.DateTimeFormat(LOC, {weekday: "short"}).format(D(x.date))), yMax: 100, series: [{name: "الالتزام %", values: tr.map(x => x.pct), color: css("--accent"), fill: true}]});
+}
+const dutyCard = du => `<div class="card row"><div><h2>${du.isMe ? "أنت المشرف المناوب الآن" : du.holder ? "المشرف المناوب: " + esc(du.holder) : "لا يوجد مشرف مناوب"}</h2><p class="hint" style="margin:0">${du.since ? "منذ " + tFmt.format(du.since) + " · " : ""}${du.over} حالة متجاوزة ما زالت داخل القسم.${du.canTake ? " باستلامك تنتقل إليك متابعتها وصلاحية التسجيل." : ""}</p></div>${du.canTake ? '<button class="btn primary" type="button" data-act="dutyTake">استلام المناوبة الآن</button>' : ""}</div>`;
+async function pgHandovers(el){
+  const L = await api("handovers.list"), du = await api("duty.get"); if (!L || !du) return;
+  el.innerHTML = `${dutyCard(du)}<div class="card"><h2>سجل تسليم المناوبات</h2><p class="hint">آخر ${L.length} عملية. يوثّق النظام تلقائياً وقت الاستلام وهوية المسلِّم والمستلِم وعدد الحالات المتجاوزة التي انتقلت.</p>
+  ${tableHTML(["وقت الاستلام", "المسلِّم", "المستلِم", "متجاوزون داخل القسم"], L.map(h => [tFmt.format(h.at), esc(h.from), esc(h.to), h.over]))}</div>`;
+}
+
+/* ---------- حالات التأخير ---------- */
+const durFmt = m => m >= 60 ? `${Math.floor(m / 60)} س ${String(m % 60).padStart(2, "0")} د` : `${m} د`;
+const hm = t => t ? new Date(t).toLocaleTimeString("en-GB", {hour: "2-digit", minute: "2-digit"}) : "—";
+const visitRow = (v, w) => `<div class="issue" style="--c:var(${v.exitAt ? "--muted" : "--crit"})"><div style="flex:1;min-width:190px"><b>${REASONS[v.reason]}</b><span class="meta"><span class="num">${v.code}</span> · دخل ${tFmt.format(v.arrivedAt)}${v.exitAt ? ` · خرج ${hm(v.exitAt)}` : " · ما زال داخل القسم"}${v.note ? " · " + esc(v.note) : ""}</span><span class="meta">الطبيب المعالج: ${v.doctor ? esc(v.doctor) : "غير محدد"}${v.mrn ? ` · رقم الملف: <span class="num" dir="ltr">${esc(v.mrn)}</span>` : ""}</span></div><div class="tools"><b class="num" style="color:var(--crit)">${durFmt(v.mins)}</b>${w && !v.exitAt ? `<button class="btn primary small" type="button" data-act="vExitNow" data-id="${v.id}">خرج الآن</button>` : ""}${w ? `<button class="btn small" type="button" data-act="visitOpen" data-id="${v.id}">تعديل</button>` : ""}</div></div>`;
+const visitPanel = v => `<div class="card"><div class="row"><h2>تعديل الحالة <span class="num">${v.code}</span></h2><button class="btn small" type="button" data-act="visitOpen" data-id="">إغلاق</button></div>
+  <p class="hint">دخل ${tFmt.format(v.arrivedAt)}${v.exitAt ? ` · خرج ${tFmt.format(v.exitAt)}` : ""} · المدة ${durFmt(v.mins)} · سجّلها ${esc(v.by)}</p>
+  <form class="sf" data-form="vreason" data-id="${v.id}" novalidate><label>الطبيب المعالج<select name="doctor" id="f-vdoc2"><option value="">غير محدد</option>${[...new Set([...v.doctors, ...(v.doctor ? [v.doctor] : [])])].map(n => `<option value="${esc(n)}" ${n === v.doctor ? "selected" : ""}>${esc(n)}</option>`).join("")}</select></label><label>سبب التأخير<select name="reason" id="f-vreason">${REASONS.map((n, i) => `<option value="${i}" ${v.reason === i ? "selected" : ""}>${n}</option>`).join("")}</select></label><label>رقم ملف المريض (اختياري)<input name="mrn" id="f-vmrn2" inputmode="numeric" maxlength="20" autocomplete="off" dir="ltr" value="${esc(v.mrn || "")}"></label><label>توضيح دون بيانات مرضى<input name="note" id="f-vnote2" maxlength="300" value="${esc(v.note)}"></label><div class="act"><button class="btn primary" type="submit">حفظ التعديل</button></div></form></div>`;
+async function pgJourney(el){
+  const d = await api("visits.list", {filter: S.vFilter}); if (!d) return; const st = d.stats, w = d.canWrite;
+  let det = ""; if (S.visitId && w){ const v = await api("visit.get", {id: S.visitId}); if (v) det = visitPanel(v); }
+  const docs = `<div class="card"><h2>الأطباء الموجودون في المناوبة</h2><p class="hint">${d.doctors.length ? d.doctors.length + " طبيباً." : "لم يُضف أحد بعد."}${w ? " تُكتب الأسماء من جديد مع كل مناوبة." : ""}</p>
+    <div class="tools">${d.doctors.map(n => `<span class="chip" style="--c:var(--accent);font-size:13.5px;padding:3px 12px">${esc(n)}${w ? ` <button type="button" data-act="docRemove" data-name="${esc(n)}" aria-label="إزالة ${esc(n)}" style="border:0;background:none;cursor:pointer;color:var(--crit);font-size:16px;line-height:1;padding:0 2px">×</button>` : ""}</span>`).join("")}</div>
+    ${w ? `<form class="sf" data-form="docAdd" style="margin-top:10px" novalidate><label>اسم الطبيب<input name="name" id="f-doc" maxlength="40" placeholder="مثال: د. أحمد" required></label><div class="act"><button class="btn primary" type="submit">إضافة</button></div></form>` : ""}</div>`;
+  const du = await api("duty.get"); if (du) det = dutyCard(du) + docs + det; else det = docs + det;
+  const t0 = new Date(Date.now() - 245 * 60e3), def = String(t0.getHours()).padStart(2, "0") + ":" + String(t0.getMinutes()).padStart(2, "0");
+  el.innerHTML = `${det}
+  ${w ? `<div class="card"><h2>تسجيل مريض تجاوز 4 ساعات</h2><p class="hint">تأكد من وقت الدخول، اختر الطبيب المعالج، ثم اضغط سبب التأخير. مع «أخرى» تظهر خانة لكتابة السبب. يُكتب رقم الملف فقط إن لزم، دون اسم أو هوية أو تشخيص.</p>
+    <form class="sf" data-form="vnew" novalidate>
+      <label>وقت دخول المريض القسم<input type="time" name="arr" id="f-varr" value="${def}" required></label>
+      <label>الطبيب المعالج${d.doctors.length ? "" : " (أضف أطباء المناوبة أولاً)"}<select name="doctor" id="f-vdoc"><option value="">غير محدد</option>${d.doctors.map(n => `<option value="${esc(n)}">${esc(n)}</option>`).join("")}</select></label>
+      <label>رقم ملف المريض (اختياري)<input name="mrn" id="f-vmrn" inputmode="numeric" maxlength="20" autocomplete="off" dir="ltr" placeholder="رقم الملف فقط"></label>
+      <h3>اضغط سبب التأخير لتُسجَّل الحالة مباشرة</h3>
+      <div class="rbtns">${REASONS.map((n, i) => i === REASONS.length - 1 ? `<button type="button" data-act="otherShow" aria-expanded="false" aria-controls="otherBox">${n}</button>` : `<button type="submit" name="reason" value="${i}">${n}</button>`).join("")}</div>
+      <div class="wide" id="otherBox" hidden style="display:grid;gap:10px;border:1px solid var(--accent);border-radius:10px;padding:12px;background:var(--accent-soft)">
+        <label style="color:var(--ink)">اكتب سبب التأخير (دون بيانات مرضى)<input name="note" id="f-vnote" maxlength="300"></label>
+        <div><button class="btn primary" type="submit" name="reason" value="${REASONS.length - 1}">تسجيل الحالة بهذا السبب</button></div>
+      </div>
+    </form></div>` : `<p class="notice">التسجيل متاح للمشرف المناوب ومدير النظام. اضغط «استلام المناوبة الآن» لتبدأ.</p>`}
+  <div class="rhead"><div class="seg" role="group" aria-label="تصفية الحالات">${[["active", `داخل القسم (${st.over})`], ["today", `كل متجاوزي اليوم (${st.lateToday})`]].map(([k, n]) => `<button type="button" data-act="vFilter" data-f="${k}" aria-pressed="${k === S.vFilter}">${n}</button>`).join("")}</div></div>
+  <div class="card"><h2>${S.vFilter === "active" ? "متجاوزون ما زالوا داخل القسم" : "متجاوزو اليوم"}</h2><p class="hint">${w ? "عند خروج المريض من القسم اضغط «خرج الآن»." : "للعرض فقط."}</p><div class="list">${d.rows.map(v => visitRow(v, w)).join("") || '<p class="hint">لا توجد حالات.</p>'}</div></div>
+  ${w ? `<details class="card"><summary style="cursor:pointer;font-family:var(--display);font-weight:600">إجمالي زيارات مناوبتي (اختياري)${d.shiftVisits === null ? "" : ` · ${d.shiftVisits}`}</summary><p class="hint" style="margin-top:8px">إن توفّر لديك عدد من دخلوا القسم في مناوبتك فأدخله ليحسب النظام نسبة الالتزام. بدونه يعمل التقرير بعدد المتجاوزين وأسبابهم فقط.</p>
+    <form class="sf" data-form="vtotal" novalidate><label>عدد من دخلوا القسم منذ بداية المناوبة<input type="number" inputmode="numeric" name="visits" id="f-vtotal" min="0" max="999" value="${d.shiftVisits === null ? "" : d.shiftVisits}" placeholder="اتركه فارغاً إن لم يتوفر"></label><div class="act"><button class="btn" type="submit">حفظ</button></div></form></details>` : ""}`;
+}
+
+/* ---------- تقرير التأخير ---------- */
+let lastD = null;
+const delayData = d => ({
+  title: "تقرير تأخير رحلة المريض · هدف 4 ساعات", file: "nabd-delays-" + d.period,
+  range: d.from === d.to ? dLong.format(D(d.to)) : `من ${dFmt.format(D(d.from))} إلى ${dLong.format(D(d.to))}`,
+  kp: [["تجاوزت 4 ساعات", fmt(d.late)], ["متوسط مدة المتجاوزين", durFmt(d.avg)], ["إجمالي الزيارات", d.visits ? fmt(d.visits) : "—"], ["ضمن 4 ساعات", d.pct === null ? "—" : d.pct + "%"]],
+  reasons: {cols: ["سبب التأخير", "العدد", "النسبة من المتجاوزين %"], rows: d.byReason.map(x => [x.name, x.count, d.late ? Math.round(x.count / d.late * 100) : 0]), w: [2.2, 1, 1.4]},
+  shifts: {cols: ["المناوبة", "تجاوزت 4 ساعات", "الزيارات", "الالتزام %"], rows: d.byShift.map(x => [SHIFTS[x.type], x.late, x.visits || "—", x.pct === null ? "—" : x.pct])},
+  doctors: d.byDoctor ? {cols: ["الطبيب المعالج", "الحالات المتجاوزة", "النسبة %"], rows: d.byDoctor.map(x => [x.name, x.count, d.late ? Math.round(x.count / d.late * 100) : 0]), w: [2.2, 1, 1]} : null,
+  cases: d.rows ? {cols: ["الرمز", "رقم الملف", "المناوبة", "الدخول", "المدة", "الطبيب المعالج", "سبب التأخير", "توضيح"], rows: d.rows.map(v => [v.code, v.mrn || "—", SHIFTS[v.shiftType], tFmt.format(v.arrivedAt), durFmt(v.mins) + (v.exitAt ? "" : " (داخل القسم)"), v.doctor || "غير محدد", REASONS[v.reason], v.note || ""])} : null});
+async function pgDelays(el){
+  const d = lastD = await api("delays.report", {period: S.dPeriod}); if (!d) return; const X = delayData(d), max = Math.max(1, ...d.byReason.map(x => x.count));
+  el.innerHTML = `
+  <div class="rhead"><div class="seg" role="group" aria-label="فترة التقرير">${[["today", "اليوم"], ["week", "آخر 7 أيام"]].map(([k, n]) => `<button type="button" data-act="dPeriod" data-p="${k}" aria-pressed="${k === S.dPeriod}">${n}</button>`).join("")}</div>
+    <div class="tools"><button class="btn primary" type="button" data-act="dpdf">تصدير PDF</button><button class="btn" type="button" data-act="dxlsx">تصدير Excel</button></div></div>
+  <div class="card"><h2>${X.title}</h2><p class="hint" style="margin:0">${X.range}${d.inside ? ` · ${d.inside} حالة ما زالت داخل القسم` : ""}${d.partial ? " · النسبة تقريبية لأن بعض المناوبات لم يُدخل إجمالي زياراتها" : ""}</p></div>
+  <div class="grid kpis">${kpi(X.kp[0][0], X.kp[0][1], "حالة", "لكل منها سبب تأخير", d.late ? "--crit" : "--ok")}${kpi(X.kp[1][0], X.kp[1][1], "", "لمن خرجوا من القسم", "--high")}${kpi(X.kp[2][0], X.kp[2][1], "", d.visits ? "مجموع ما أدخله المشرفون" : "اختياري، لم يُدخل", "--accent")}${kpi(X.kp[3][0], d.pct === null ? "—" : d.pct, d.pct === null ? "" : "%", d.pct === null ? "تظهر عند إدخال إجمالي الزيارات" : "نسبة الالتزام بالهدف", d.pct === null ? "--muted" : d.pct >= 90 ? "--ok" : d.pct >= 80 ? "--warn" : "--crit")}</div>
+  <div class="card"><h2>أسباب التأخير</h2><p class="hint">توزيع الحالات المتجاوزة حسب السبب، الأكثر أولاً.</p>${d.byReason.length ? bars(d.byReason.map(x => [x.name, x.count, max, ` · ${Math.round(x.count / d.late * 100)}%`]), "--high") : '<p class="hint">لا توجد حالات متجاوزة في هذه الفترة.</p>'}</div>
+  ${d.byDoctor ? `<div class="card"><h2>حسب الطبيب المعالج</h2><p class="hint">عدد الحالات المتجاوزة المرتبطة بكل طبيب. العدد وحده لا يدل على سبب التأخير، فيُقرأ مع الأسباب.</p>${d.byDoctor.length ? bars(d.byDoctor.map(x => [esc(x.name), x.count, d.byDoctor[0].count, ` · ${Math.round(x.count / d.late * 100)}%`]), "--accent") : '<p class="hint">لا توجد حالات.</p>'}</div>` : ""}
+  <div class="card"><h2>حسب المناوبة</h2><p class="hint">حسب المناوبة التي وصل فيها المريض.</p>${tableHTML(X.shifts.cols, X.shifts.rows)}</div>
+  ${X.cases ? `<div class="card"><h2>الحالات المتجاوزة وأسبابها</h2><p class="hint">${X.cases.rows.length} حالة. رقم الملف يظهر للمشرفين والمدير فقط.</p>${tableHTML(X.cases.cols, X.cases.rows.map(r => r.map((c, i) => i === 7 ? `<span style="white-space:normal;display:inline-block;min-width:140px">${esc(c)}</span>` : esc(c))))}</div>` : `<p class="notice">تفاصيل الحالات غير متاحة لدور الاطلاع. تظهر الإجماليات فقط.</p>`}`;
+}
+async function pdfDoc(title, sub, kp, sections){
+  try { await document.fonts.ready; } catch(e){}
+  const W = 1240, Hh = 1754, M = 84, pages = [], INK = "#12303a", MU = "#587079", LN = "#d7e2e5", AC = "#0e7c86"; let ctx, y;
+  const T = (s, x, yy, font, color, align = "right", mw) => { ctx.font = font + " " + FONT; ctx.fillStyle = color; ctx.textAlign = align; ctx.textBaseline = "middle"; mw ? ctx.fillText(s, x, yy, mw) : ctx.fillText(s, x, yy); };
+  const page = () => { const c = document.createElement("canvas"); c.width = W; c.height = Hh; ctx = c.getContext("2d"); ctx.direction = "rtl"; ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, W, Hh); pages.push(c); y = M; };
+  page(); ctx.fillStyle = AC; ctx.fillRect(0, 0, W, 14);
+  T("نبض الطوارئ", W - M, y + 20, "600 34px", INK); y += 62;
+  T(title, W - M, y, "600 24px", AC); y += 36; T(sub, W - M, y, "20px", MU); y += 28; ctx.fillStyle = LN; ctx.fillRect(M, y, W - 2 * M, 2); y += 34;
+  const bw = (W - 2 * M - 3 * 18) / 4;
+  kp.forEach((k, i) => { const bx = W - M - (i % 4) * (bw + 18) - bw, by = y + Math.floor(i / 4) * 118; ctx.strokeStyle = LN; ctx.lineWidth = 2; ctx.strokeRect(bx, by, bw, 100); T(k[0], bx + bw - 16, by + 30, "18px", MU); T(String(k[1]), bx + bw - 16, by + 68, "600 27px", INK); });
+  y += 118 * Math.ceil(kp.length / 4) + 20;
+  for (const sec of sections){
+    const ws = sec.w || sec.cols.map(() => 1), tot = ws.reduce((a, b) => a + b, 0), cw = ws.map(x => x / tot * (W - 2 * M)), rh = 40;
+    const cx = j => W - M - cw.slice(0, j).reduce((a, b) => a + b, 0) - cw[j] / 2;
+    const head = () => { ctx.fillStyle = "#e6f2f3"; ctx.fillRect(M, y, W - 2 * M, rh); sec.cols.forEach((c, j) => T(c, cx(j), y + rh / 2, "600 17px", INK, "center", cw[j] - 10)); y += rh; };
+    if (y + 46 + rh * 3 > Hh - M - 30) page();
+    T(sec.heading, W - M, y + 16, "600 26px", INK); y += 46; head();
+    for (const r of sec.rows){ if (y + rh > Hh - M - 30){ page(); head(); } r.forEach((c, j) => T(typeof c === "number" ? fmt(c) : String(c), cx(j), y + rh / 2, "18px", INK, "center", cw[j] - 10)); ctx.fillStyle = LN; ctx.fillRect(M, y + rh - 1, W - 2 * M, 1); y += rh; }
+    y += 34;
+  }
+  pages.forEach((c, i) => { ctx = c.getContext("2d"); ctx.direction = "rtl"; T(`نبض الطوارئ · صفحة ${i + 1} من ${pages.length}`, W / 2, Hh - 46, "16px", MU, "center"); });
+  return pages;
+}
+const delaySections = X => [{heading: "أسباب التأخير", ...X.reasons}, ...(X.doctors ? [{heading: "حسب الطبيب المعالج", ...X.doctors}] : []), {heading: "حسب المناوبة", ...X.shifts}, ...(X.cases ? [{heading: "الحالات المتجاوزة وأسبابها", cols: ["الرمز", "رقم الملف", "الدخول", "المدة", "الطبيب المعالج", "سبب التأخير"], rows: X.cases.rows.map(r => [r[0], r[1], r[3], r[4], r[5], r[6]]), w: [.8, 1.1, 1.3, 1.5, 1.5, 2.1]}] : [])];
+
+/* ---------- المستخدمون ---------- */
+async function pgUsers(el){
+  const L = await api("users.list"); if (!L) return;
+  el.innerHTML = `${S.newUser ? `<p class="notice ok">أُنشئ الحساب <b dir="ltr">${esc(S.newUser.username)}</b>. كلمة المرور المؤقتة: <b dir="ltr">${esc(S.newUser.tempPassword)}</b>. تظهر مرة واحدة فقط.</p>` : ""}
+  <div class="card"><h2>المستخدمون والصلاحيات</h2><p class="hint">تغيير الدور أو إيقاف الحساب يُطبَّق فوراً ويُكتب في سجل التدقيق. الحساب الموقوف تُلغى جلساته.</p>
+  ${tableHTML(["الاسم الوظيفي", "اسم المستخدم", "الدور", "الحالة", "آخر دخول", ""], L.map(u => [esc(u.name), `<span dir="ltr">${esc(u.username)}</span>`,
+    `<select class="inl" data-chg="userRole" data-id="${u.id}" aria-label="دور ${esc(u.name)}" ${u.id === S.me.id ? "disabled" : ""}>${Object.entries(ROLES).map(([k, n]) => `<option value="${k}" ${k === u.role ? "selected" : ""}>${n}</option>`).join("")}</select>`,
+    chip(u.pending ? {n: "بانتظار الاعتماد", c: "--warn"} : u.locked ? {n: "مقفل مؤقتاً", c: "--high"} : u.active ? {n: "فعّال", c: "--ok"} : {n: "موقوف", c: "--muted"}), u.lastLogin ? tFmt.format(u.lastLogin) : "—",
+    u.id === S.me.id ? "حسابك" : `<button class="btn small" type="button" data-act="userActive" data-id="${u.id}" data-v="${u.active ? "" : "1"}">${u.pending ? "اعتماد" : u.active ? "إيقاف" : "تفعيل"}</button>${u.locked ? ` <button class="btn small" type="button" data-act="userUnlock" data-id="${u.id}">فك القفل</button>` : ""}`]))}</div>
+  <div class="card"><h2>إضافة مستخدم</h2><p class="hint">يستطيع الموظف أيضاً طلب حساب بنفسه من شاشة الدخول، ثم تعتمده أنت من الجدول.</p>
+    <form class="sf" data-form="user" novalidate>
+      <label>اسم المستخدم<input name="username" id="f-uname" dir="ltr" maxlength="20" placeholder="sup.g" required></label>
+      <label>الاسم الوظيفي<input name="name" id="f-ufull" maxlength="40" placeholder="الاسم كما يظهر في السجل" required></label>
+      <label>الدور<select name="role" id="f-urole">${Object.entries(ROLES).map(([k, n]) => `<option value="${k}" ${k === "supervisor" ? "selected" : ""}>${n}</option>`).join("")}</select></label>
+      <div class="act"><button class="btn primary" type="submit">إنشاء الحساب</button></div>
+    </form></div>`;
+  S.newUser = null;
+  if (Server.demo) el.insertAdjacentHTML("beforeend", `<div class="card"><h2>بيانات هذا الجهاز</h2><p class="hint">كل ما سُجّل محفوظ في متصفح هذا الجهاز فقط. إعادة الضبط تمسحه كله، ومعه الحسابات المضافة وسجل التدقيق، وتعيد البيانات التجريبية الأولى.</p><button class="btn" type="button" data-act="dataReset">إعادة ضبط البيانات التجريبية</button></div>`);
+}
+
+/* ---------- سجل التدقيق ---------- */
+let auditRows = [];
+const auditTable = q => { const L = q ? auditRows.filter(e => (e.name + e.username + (ACTION_LABEL[e.action] || e.action) + e.summary).includes(q)) : auditRows;
+  return tableHTML(["#", "الوقت", "المستخدم", "الدور", "الإجراء", "التفاصيل"], L.slice(0, 200).map(e => [e.seq, tFmt.format(e.at), `${esc(e.name)} <span dir="ltr" style="color:var(--muted)">${esc(e.username)}</span>`, ROLES[e.role] || "—", chip({n: ACTION_LABEL[e.action] || e.action, c: e.action === "denied" || e.action === "login.fail" ? "--crit" : "--accent"}), `<span style="white-space:normal;display:inline-block;min-width:240px">${esc(e.summary)}</span>`])); };
+async function pgAudit(el){
+  const L = await api("audit.list"); if (!L) return; auditRows = L;
+  el.innerHTML = `<div class="card"><div class="row"><h2>سجل التدقيق</h2><div class="tools"><button class="btn" type="button" data-act="auditVerify">التحقق من سلامة السجل</button><button class="btn" type="button" data-act="testDelete">اختبار: طلب حذف من السجل</button></div></div>
+    <p class="hint">${L.length} قيداً. السجل للإضافة فقط: لا يوجد في الخادم إجراء لتعديله أو حذفه، وكل قيد مرتبط بما قبله ببصمة تكشف أي عبث. الطلبات المرفوضة ومحاولات الدخول الفاشلة تُسجَّل أيضاً.</p>
+    <p id="auditOut" class="notice" hidden></p>
+    <p><input class="inl" id="auditQ" type="search" placeholder="بحث في السجل" aria-label="بحث في سجل التدقيق"></p>
+    <div id="auditT">${auditTable("")}</div></div>`;
+  $("auditQ").addEventListener("input", e => { $("auditT").innerHTML = auditTable(e.target.value.trim()); });
+}
+
+/* ---------- متطلبات التشغيل ---------- */
+function pgReadiness(el){
+  const roles = Object.keys(ROLES);
+  el.innerHTML = `
+  <div class="card doc"><h2>ما الذي يثبته هذا النموذج، وما الذي لا يثبته</h2>
+    <p>النموذج يعمل فعلاً بمنطق كامل: جلسات، صلاحيات حسب الدور، تسجيل من تجاوزوا 4 ساعات مع سبب التأخير، حساب نسبة الالتزام متى أُدخل إجمالي الزيارات، توثيق تسليم المناوبة، وسجل تدقيق متسلسل. كل ذلك يمر عبر طبقة واحدة تحاكي الخادم.</p>
+    <p>لكنه يعمل داخل المتصفح وببيانات وهمية. لذلك <b>لا يوفّر حماية فعلية</b> ولا يجمع مستخدمين على أجهزة مختلفة، والبيانات محفوظة في متصفح هذا الجهاز فقط. الحماية الحقيقية تبدأ عند نقل هذه الطبقة إلى خادم وقاعدة بيانات مركزية كما في الأقسام التالية.</p></div>
+  <div class="card"><h2>مصفوفة الصلاحيات المطبّقة</h2><p class="hint">مولّدة من الجدول نفسه الذي يتحقق منه الخادم التجريبي عند كل طلب.</p>
+    <div class="mx">${tableHTML(["الصلاحية", ...roles.map(r => ROLES[r])], Object.keys(PERMS).map(p => [PERM_LABEL[p], ...roles.map(r => PERMS[p].includes(r) ? "✓" : "—")]))}</div>
+    <h3 style="font-size:14px;margin:14px 0 6px">اختبار التحقق في الخادم بحسابك الحالي</h3>
+    <p class="hint">هذه الأزرار ترسل الطلب مباشرة إلى طبقة الخادم متجاوزةً إخفاء الواجهة، لتُظهر أن الرفض يأتي من الخادم.</p>
+    <div class="tools"><button class="btn" type="button" data-act="testCall" data-a="visits.list" data-l="عرض قائمة الحالات المتجاوزة">طلب عرض قائمة الحالات</button><button class="btn" type="button" data-act="testCall" data-a="user.create" data-l="إنشاء مستخدم">طلب إنشاء مستخدم</button><button class="btn" type="button" data-act="testCall" data-a="audit.delete" data-l="حذف من سجل التدقيق">طلب حذف من سجل التدقيق</button></div>
+    <p id="testOut" class="notice" style="margin-top:10px" hidden></p></div>
+  <div class="card doc"><h2>متطلبات التحويل إلى نظام مستضاف وآمن</h2>
+    <h3>1. المعمارية</h3><ul><li>واجهة ويب، وخادم تطبيق يقدّم واجهة برمجية (API)، وقاعدة بيانات علائقية مركزية. التقنيات يحددها معيار تقنية المعلومات في المنشأة.</li><li>الاستضافة داخل شبكة المنشأة أو في بيئة سحابية تعتمدها الجهة داخل المملكة، مع بيئات منفصلة للتطوير والاختبار والتشغيل.</li><li>لا يُخزَّن أي شيء مشترك في المتصفح. المتصفح يعرض فقط ما يعيده الخادم.</li></ul>
+    <h3>2. المصادقة</h3><ul><li>الأفضل ربط الدخول بالدليل المؤسسي للمنشأة (دخول موحّد SSO) بدلاً من كلمات مرور خاصة بالنظام.</li><li>تحقق متعدد العوامل، وانتهاء تلقائي للجلسة، وقفل بعد المحاولات الفاشلة، وجلسات محفوظة في الخادم بملفات ارتباط آمنة.</li><li>إجراء موثّق لإنشاء الحسابات وإيقافها عند النقل أو انتهاء التكليف، ومراجعة دورية للحسابات.</li></ul>
+    <h3>3. الصلاحيات (RBAC)</h3><ul><li>التحقق في الخادم عند كل طلب: الجلسة، ثم الدور، ثم المناوبة (لا يسجّل الحالات إلا المشرف المناوب ومدير النظام).</li><li>الخادم يحجب الحقول غير المسموحة من الرد نفسه، ولا يكتفي بإخفائها في الواجهة. دور الاطلاع هنا لا يستلم قائمة الحالات ولا أسماء الأطباء، بل الإجماليات فقط.</li><li>مبدأ أقل صلاحية، وفصل المهام: المشرف المناوب لا يستلم من نفسه، ومدير النظام لا يغيّر دوره بنفسه.</li></ul>
+    <h3>4. قاعدة البيانات</h3><ul><li>الجداول الأساسية: المستخدمون، الأدوار، الحالات المتجاوزة وأسبابها، أطباء كل مناوبة، إجمالي زيارات كل مناوبة، تسليم المناوبات، سجل التدقيق.</li><li>قيود تمنع التعارض: مشرف مناوب واحد في كل وقت، ويُنفَّذ الاستلام كمعاملة واحدة، ولا تُقبل حالة متجاوزة بلا سبب.</li><li>تشفير أثناء النقل والتخزين، ونسخ احتياطي مجرَّب الاستعادة، وأزمنة موحّدة من الخادم لا من جهاز المستخدم.</li></ul>
+    <h3>5. سجل التدقيق</h3><ul><li>للإضافة فقط على مستوى قاعدة البيانات: حساب التطبيق لا يملك صلاحية تعديل أو حذف في جدول التدقيق.</li><li>إرسال نسخة إلى نظام مراقبة الأحداث الأمنية في المنشأة إن وُجد، ومدة حفظ تحددها سياسة المنشأة.</li><li>يشمل الدخول والخروج والطلبات المرفوضة وكل إضافة وتعديل مع المستخدم والوقت.</li></ul>
+    <h3>6. الأمن السيبراني</h3><ul><li>مراجعة التصميم واختبار اختراق وفحص ثغرات قبل الإطلاق، ومعالجة ما ينتج عنها.</li><li>التحقق من المدخلات في الخادم، والحماية من الهجمات الشائعة على تطبيقات الويب، وإدارة الأسرار والمفاتيح خارج الشيفرة.</li><li>مواءمة الضوابط مع ما تعتمده المنشأة من ضوابط الهيئة الوطنية للأمن السيبراني وسياسات وزارة الصحة، بحسب ما يقرره فريق الأمن السيبراني.</li></ul>
+    <h3>7. الخصوصية</h3><ul><li>لا يُسجَّل إلا من تجاوز 4 ساعات، برمز تسلسلي مجهول ووقت الدخول والخروج وسبب التأخير فقط، دون اسم أو رقم ملف أو تشخيص. هذه مع ذلك بيانات على مستوى الزيارة، فيُعرض تصميمها على مسؤول الخصوصية قبل التشغيل الفعلي، ويُمنع ربط الرمز بهوية المريض داخل النظام.</li><li>الحقل النصي الحر الوحيد هو توضيح سبب التأخير، ويُضبط بسياسة مكتوبة وتنبيه ظاهر وتدريب حتى لا تُكتب فيه معلومة عن مريض.</li><li>الأعداد الصغيرة جداً قد تدل على شخص بعينه في مستشفى صغير، فتُحدَّد قاعدة للتعامل معها في التقارير المشاركة.</li><li>عرض النظام على مسؤول الخصوصية لتقدير الحاجة إلى تقييم أثر، وفق نظام حماية البيانات الشخصية وسياسات المنشأة.</li><li>أي ربط لاحق بالسجل الطبي أو أنظمة الوزارة مشروع مستقل يحتاج موافقات خاصة.</li></ul>
+    <h3>8. التشغيل</h3><ul><li>مالك للنظام من إدارة الطوارئ، وجهة دعم من تقنية المعلومات، وإجراء لإدارة التغيير.</li><li>إجراء بديل ورقي عند توقف النظام، وتدريب قصير لمشرفي المناوبات.</li></ul>
+    <h3>خطة مرحلية مقترحة</h3><ul><li>اعتماد هذا النموذج ومصفوفة الصلاحيات من إدارة الطوارئ.</li><li>اجتماع متطلبات مع تقنية المعلومات والأمن السيبراني والخصوصية لتحديد الاستضافة وطريقة الدخول.</li><li>بناء الخادم وقاعدة البيانات ونقل المنطق الحالي إليهما.</li><li>اختبار أمني واختبار قبول من المشرفين.</li><li>تشغيل تجريبي محدود ثم التعميم.</li></ul></div>
+  <div class="card"><h2>من يقرر ماذا</h2>${tableHTML(["الجهة", "القرارات المطلوبة منها"], [["إدارة الطوارئ", "تعريف بداية الرحلة ونهايتها، قائمة أسباب التأخير، نسبة الالتزام المستهدفة، من يحمل كل دور"], ["تقنية المعلومات", "بيئة الاستضافة، التقنيات المعتمدة، الربط بالدليل المؤسسي، النسخ الاحتياطي والدعم"], ["الأمن السيبراني", "الضوابط الواجبة، الاختبارات قبل الإطلاق، مراقبة السجلات، سياسة الجلسات وكلمات المرور"], ["الخصوصية", "تصنيف البيانات، قاعدة الأعداد الصغيرة، سياسة الحقول النصية، مدة الحفظ"]])}</div>`;
+}
+
+/* ---------- الإطار والتنقل ---------- */
+const PAGES = {journey: pgJourney, delays: pgDelays, dashboard: pgDashboard, handovers: pgHandovers, users: pgUsers, audit: pgAudit, readiness: pgReadiness};
+const TITLES = Object.fromEntries(NAV.map(n => [n[0], n[1]]));
+function tick(){ const now = new Date(); if ($("clock")) $("clock").textContent = dLong.format(now) + " · " + now.toLocaleTimeString("en-GB", {hour: "2-digit", minute: "2-digit"}); }
+async function render(){
+  const logged = !!S.token; $("login").hidden = logged; $("app").hidden = !logged;
+  if (!logged){
+    const st = await Server.status(); if (st.user){ S.token = "session"; S.me = st.user; return route(); }
+    $("authSetup").hidden = !st.setup; $("authMain").hidden = !!st.setup; $("demoBlock").hidden = !Server.demo;
+    $("lg-err").textContent = S.flash; S.flash = ""; $("demoAcc").innerHTML = (await Server.demoAccounts()).map(a => `<button type="button" data-act="fill" data-u="${a.username}" data-p="${a.password}"><span>${esc(a.name)}${a.note ? ` <small>· ${a.note}</small>` : ""}</span><small>${ROLES[a.role]}</small></button>`).join(""); return; }
+  const nav = S.route;
+  $("nav").innerHTML = NAV.filter(n => can(n[2])).map(n => `<a href="#${n[0]}" ${n[0] === nav ? 'aria-current="page"' : ""}>${n[1]}</a>`).join("");
+  $("pageTitle").textContent = TITLES[S.route]; $("userchip").innerHTML = `${esc(S.me.name)}<small>${ROLES[S.me.role]}</small>`; tick();
+  await PAGES[S.route]($("page"));
+}
+function route(){ const r = location.hash.slice(1), n = NAV.find(x => x[0] === r); S.route = n && can(n[2]) ? r : "dashboard"; render(); }
+const go = r => { if (location.hash.slice(1) === r) route(); else location.hash = r; };
+const vals = f => Object.fromEntries(new FormData(f));
+const FORMS = {
+  async login(v){ const r = await Server.login(v.username, v.password); if (!r.ok){ $("lg-err").textContent = r.message; return; } S.token = r.token; S.me = r.user; $("lg-pass").value = ""; go(S.me.role === "supervisor" ? "journey" : "dashboard"); },
+  async vnew(v){ const r = await api("visit.create", v); if (r){ S.vFilter = "active"; toast("سُجّلت الحالة برمز " + r.code); render(); } },
+  async vreason(v, f){ if (await api("visit.reason", {id: f.dataset.id, ...v})){ S.visitId = null; toast("حُفظ التعديل."); render(); } },
+  async setup(v){ const r = await Server.setup(v); if (!r.ok){ $("st-err").textContent = r.message; return; } S.flash = ""; await render(); const o = $("lg-ok"); o.hidden = false; o.textContent = "أُنشئ حساب مدير النظام. ادخل الآن باسم المستخدم وكلمة المرور."; $("lg-user").value = v.username; },
+  async signup(v){ const r = await Server.signup(v); if (!r.ok){ $("su-err").textContent = r.message; return; } document.querySelector('[data-form="signup"]').reset(); $("su-err").textContent = ""; ACT.authTab({t: "in"}); const o = $("lg-ok"); o.hidden = false; o.textContent = "أُنشئ الحساب وهو بانتظار اعتماد مدير النظام. بعد الاعتماد ادخل باسم المستخدم وكلمة المرور."; $("lg-user").value = v.username; },
+  async docAdd(v){ if (await api("doctor.add", v)){ toast("أُضيف الطبيب للمناوبة."); render(); } },
+  async vtotal(v){ if (await api("shift.total", v)){ toast("حُفظ إجمالي الزيارات."); render(); } },
+  async user(v){ const r = await api("user.create", v); if (r){ S.newUser = r; render(); } }
+};
+const showOut = (id, r, label) => { const o = $(id); o.hidden = false; o.textContent = `${label}: ${r.ok ? "قبِل الخادم الطلب لأن دورك يملك هذه الصلاحية." : "رفض الخادم الطلب. " + r.message} سُجّلت المحاولة في سجل التدقيق.`; };
+const ACT = {
+  fill(d){ $("lg-user").value = d.u; $("lg-pass").value = d.p; $("lg-err").textContent = ""; FORMS.login({username: d.u, password: d.p}); },
+  async logout(){ await Server.logout(S.token); S.token = null; S.me = null; S.shiftId = S.issueId = null; render(); },
+  otherShow(d, b){ const o = $("otherBox"); o.hidden = false; b.setAttribute("aria-expanded", "true"); $("f-vnote").focus(); o.scrollIntoView({block: "center", behavior: "smooth"}); },
+  async docRemove(d){ if (await api("doctor.remove", {name: d.name})){ toast("أُزيل الاسم من المناوبة."); render(); } },
+  async vExitNow(d){ if (await api("visit.exit", {id: d.id})){ toast("سُجّل خروجه من القسم."); render(); } },
+  authTab(d){ const up = d.t === "up"; $("authUp").hidden = !up; $("authIn").style.display = up ? "none" : "flex"; $("tabIn").setAttribute("aria-pressed", String(!up)); $("tabUp").setAttribute("aria-pressed", String(up)); $("lg-err").textContent = ""; if (up) $("lg-ok").hidden = true; },
+  async dataReset(){ if (await Server.reset(S.token)){ try { location.reload(); } catch(e){} } },
+  async dutyTake(){ if (await api("duty.take")){ toast("استلمت المناوبة. تسجيل الحالات متاح لك الآن."); render(); } },
+  visitOpen(d){ S.visitId = d.id || null; go("journey"); if (d.id) window.scrollTo({top: 0}); },
+  vFilter(d){ S.vFilter = d.f; render(); }, dPeriod(d){ S.dPeriod = d.p; render(); },
+  async dpdf(){ if (!lastD) return; const X = delayData(lastD); toast("جارٍ تجهيز ملف PDF…"); try { await saveFile(`${X.file}-${stamp()}.pdf`, makePDF(await pdfDoc(X.title, X.range, X.kp, delaySections(X)))); } catch(e){ toast("تعذّر إنشاء ملف PDF."); } },
+  async dxlsx(){ if (!lastD) return; const X = delayData(lastD); try { await saveFile(`${X.file}-${stamp()}.xlsx`, makeXLSX([{name: "الملخص", bold: [0, 3], rows: [["نبض الطوارئ - " + X.title], [X.range], [], ["المؤشر", "القيمة"], ...X.kp]}, {name: "أسباب التأخير", bold: [0], rows: [X.reasons.cols, ...X.reasons.rows]}, ...(X.doctors ? [{name: "حسب الطبيب", bold: [0], rows: [X.doctors.cols, ...X.doctors.rows]}] : []), {name: "حسب المناوبة", bold: [0], rows: [X.shifts.cols, ...X.shifts.rows]}, ...(X.cases ? [{name: "الرحلات المتجاوزة", bold: [0], rows: [X.cases.cols, ...X.cases.rows]}] : [])])); } catch(e){ toast("تعذّر إنشاء ملف Excel."); } },
+  async userActive(d){ if (await api("user.update", {id: d.id, active: !!d.v})) render(); },
+  async userUnlock(d){ if (await api("user.update", {id: d.id, unlock: true})) render(); },
+  async auditVerify(){ const r = await api("audit.verify"); if (!r) return; const o = $("auditOut"); o.hidden = false; o.className = "notice" + (r.ok ? " ok" : ""); o.textContent = r.ok ? `السجل سليم: ${r.count} قيداً متسلسلاً دون انقطاع.` : `خلل في تسلسل السجل عند القيد رقم ${r.at}.`; },
+  async testDelete(){ const r = await Server.request(S.token, "audit.delete", {seq: 1}); showOut("auditOut", r, "طلب حذف من سجل التدقيق"); },
+  async testCall(d){ const p = d.a === "user.create" ? {username: "", name: "", role: "admin"} : {};
+    let r = await Server.request(S.token, d.a, p); if (!r.ok && r.code === "invalid") r = {ok: true}; showOut("testOut", r, d.l); }
+};
+document.addEventListener("click", e => { const b = e.target.closest("[data-act]"); if (b && ACT[b.dataset.act]) ACT[b.dataset.act](b.dataset, b); });
+document.addEventListener("submit", e => { const f = e.target.closest("[data-form]"); if (!f) return; e.preventDefault(); const v = vals(f); if (e.submitter && e.submitter.name) v[e.submitter.name] = e.submitter.value; FORMS[f.dataset.form](v, f); });
+document.addEventListener("change", async e => { const s = e.target.closest("[data-chg]"); if (s && s.dataset.chg === "userRole"){ await api("user.update", {id: s.dataset.id, role: s.value}); render(); } });
+window.addEventListener("hashchange", route);
+const redraw = () => { if (S.token && S.route === "dashboard") render(); };
+let rt; window.addEventListener("resize", () => { clearTimeout(rt); rt = setTimeout(redraw, 200); });
+new MutationObserver(redraw).observe(document.documentElement, {attributes: true, attributeFilter: ["data-theme"]});
+if (window.matchMedia) window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", redraw);
+setInterval(tick, 30000);
+route();
+try { if ("serviceWorker" in navigator && location.protocol === "https:" && window.top === window) navigator.serviceWorker.register("sw.js").catch(() => {}); } catch(e){}
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(redraw);
+</script>
+</body>
+</html>
